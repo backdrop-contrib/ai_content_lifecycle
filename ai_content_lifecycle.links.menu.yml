@@ -1,0 +1,13 @@
+ai_content_lifecycle.settings:
+  title: 'AI Content Lifecycle'
+  description: 'Configure AI Content Lifecycle settings and manage content lifecycle.'
+  route_name: ai_content_lifecycle.settings
+  parent: ai.admin_settings
+  weight: 99
+
+ai_content_lifecycle.batch_create:
+  title: 'Analyze Content'
+  description: 'Run batch analysis on content to create lifecycle entities.'
+  route_name: ai_content_lifecycle.batch_create
+  parent: ai_content_lifecycle.settings
+  weight: 10

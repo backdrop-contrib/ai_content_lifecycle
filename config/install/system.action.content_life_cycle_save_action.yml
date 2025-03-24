@@ -1,0 +1,10 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - ai_content_lifecycle
+id: content_life_cycle_save_action
+label: 'Save content life cycles'
+type: content_life_cycle
+plugin: entity:save_action:content_life_cycle
+configuration: {  }

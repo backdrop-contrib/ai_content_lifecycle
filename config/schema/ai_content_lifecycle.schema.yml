@@ -1,0 +1,44 @@
+ai_content_lifecycle.settings:
+  type: config_object
+  label: 'AI Content Lifecycle Settings'
+  mapping:
+    enabled_entity_types:
+      type: sequence
+      label: 'Enabled entity types'
+      sequence:
+        type: boolean
+        label: 'Entity type status'
+    enabled_bundles:
+      type: sequence
+      label: 'Enabled bundles'
+      sequence:
+        type: sequence
+        label: 'Bundles for entity type'
+        sequence:
+          type: string
+          label: 'Bundle name'
+    bundle_prompts:
+      type: sequence
+      label: 'Bundle-specific prompts'
+      sequence:
+        type: sequence
+        label: 'Entity type prompts'
+        sequence:
+          type: mapping
+          label: 'Bundle prompt'
+          mapping:
+            value:
+              type: text
+              label: 'Prompt text'
+            format:
+              type: string
+              label: 'Text format'
+    view_modes:
+      type: sequence
+      label: 'View modes for content extraction'
+      sequence:
+        type: string
+        label: 'View mode'
+    default_prompt:
+      type: text
+      label: 'Default AI prompt'

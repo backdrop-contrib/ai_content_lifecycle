@@ -1,0 +1,7 @@
+name: 'AI Content Lifecycle'
+type: module
+description: 'AI supported Lifecycle Management of your Content'
+package: ai
+core_version_requirement: ^10 || ^11
+dependencies:
+  - ai:ai

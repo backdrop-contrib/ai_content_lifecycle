@@ -1,0 +1,11 @@
+services:
+  ai_content_lifecycle.content_ai_analyzer:
+    class: Drupal\ai_content_lifecycle\ContentAIAnalyzer
+    arguments:
+      - '@config.factory'
+      - '@entity_type.manager'
+      - '@ai.provider'
+      - '@renderer'
+      - '@language_manager'
+      - '@logger.factory'
+      - '@date.formatter'

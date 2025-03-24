@@ -1,0 +1,18 @@
+entity.content_life_cycle.view:
+  title: 'View'
+  route_name: entity.content_life_cycle.canonical
+  base_route: entity.content_life_cycle.canonical
+entity.content_life_cycle.edit_form:
+  title: 'Edit'
+  route_name: entity.content_life_cycle.edit_form
+  base_route: entity.content_life_cycle.canonical
+entity.content_life_cycle.delete_form:
+  title: 'Delete'
+  route_name: entity.content_life_cycle.delete_form
+  base_route: entity.content_life_cycle.canonical
+  weight: 10
+entity.content_life_cycle.collection:
+  title: 'Content Life Cycle'
+  route_name: entity.content_life_cycle.collection
+  base_route: system.admin_content
+  weight: 10
