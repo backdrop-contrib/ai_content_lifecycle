@@ -9,6 +9,7 @@ use Drupal\ai_content_lifecycle\Form\ContentLifecycleSettingsForm;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Render\RendererInterface;
@@ -29,6 +30,8 @@ class ContentAIAnalyzer {
    * @var string
    */
   protected $technicalSystemPrompt = '
+  INPUT:
+  ------
   The input is a JSON object with the following structure:
   {
     "title": "string",
@@ -37,14 +40,25 @@ class ContentAIAnalyzer {
     "updated_date": "string",
     "language": "string"
   }
+
+  Language:
+  --------
   Answer **only** in the language provided in the language element of the input.
-  Respond **strictly** in valid JSON format with no additional text, markdown, or formatting.
-  Format:{
+
+  Format:
+  ------
+  If you are unsure, answer with ´{"outdated" : false}´.
+
+  Respond **strictly** in valid rfc8259 JSON format with no additional text, markdown, or formatting.
   ´{
     "outdated": true / false,
     "reason": "string",
   }´.
-  If you are unsure, answer with ´{"outdated" : false}´.';
+
+  Variables:
+  ---------
+  Today is [ai_content_lifecycle:date]
+  ';
 
   /**
    * The constructor.
@@ -72,6 +86,7 @@ class ContentAIAnalyzer {
     protected LanguageManagerInterface $languageManager,
     protected LoggerChannelFactoryInterface $loggerFactory,
     protected DateFormatterInterface $dateFormatter,
+    protected ModuleHandlerInterface $moduleHandler,
   ) {
   }
 
@@ -85,6 +100,7 @@ class ContentAIAnalyzer {
    *   The AI analysis results.
    */
   public function analyzeContent(EntityInterface $entity) {
+    $config = $this->configFactory->get('ai_content_lifecycle.settings');
     // Extract content from entity
     $content = $this->extractEntityContent($entity);
 
@@ -94,21 +110,30 @@ class ContentAIAnalyzer {
     // Append the technical system prompt
     $prompt .= $this->technicalSystemPrompt;
 
-    // Get current date in German format
+    // Get curren date in dmY format
     $date = $this->dateFormatter->format(time(), 'custom', 'd.m.Y');
-    $current_date = "Today is the $date.";
+    $prompt = str_replace('[ai_content_lifecycle:date]', $date, $prompt);
 
-    // Append the current date to the prompt
-    $prompt .= ' ' . $current_date;
+    // Allow overriding of the prompt in other modules (like tone of voice or tokens).
+    $this->moduleHandler->alter('ai_content_lifecycle_prompt', $prompt);
 
-    // Create the chat messages with date in German and content in triple quotes
+    // Create the chat messages with date in dmY and content in triple quotes
     $messages = new ChatInput([
       new ChatMessage('system', $prompt),
       new ChatMessage('user', json_encode($content)),
     ]);
 
-    // Get the default AI provider for chat operations
-    $sets = $this->aiProvider->getDefaultProviderForOperationType('chat');
+    $config_model = $config->get('default_model');
+    if ($config_model == NULL) {
+      // Get the default AI provider for chat operations
+      $sets = $this->aiProvider->getDefaultProviderForOperationType('chat');
+    } else {
+
+      // Get the overridden AI provider for chat operations
+      $parts = explode('__', $config_model);
+      $sets['model_id'] = $parts[1];
+      $sets['provider_id'] = $parts[0];
+    }
 
     try {
       // Create provider instance and send the chat request
@@ -157,7 +182,7 @@ class ContentAIAnalyzer {
    *   The prompt to use for content analysis.
    */
   protected function getPromptForEntity(EntityInterface $entity) {
-    $config = $this->configFactory->get('ai_content_lifecycle . settings');
+    $config = $this->configFactory->get('ai_content_lifecycle.settings');
     $bundle_prompts = $config->get('bundle_prompts') ?: [];
 
     $entity_type_id = $entity->getEntityTypeId();

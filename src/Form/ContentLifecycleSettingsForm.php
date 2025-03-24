@@ -2,6 +2,7 @@
 
 namespace Drupal\ai_content_lifecycle\Form;
 
+use Drupal\ai\AiProviderPluginManager;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\TypedConfigManagerInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
@@ -45,6 +46,13 @@ Do not hallucinate!
   protected $entityTypeBundleInfo;
 
   /**
+   * The AI provider manager.
+   *
+   * @var \Drupal\ai\AiProviderPluginManager
+   */
+  protected $aiProviderManager;
+
+  /**
    * Constructor for ContentLifecycleSettingsForm.
    *
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
@@ -61,10 +69,12 @@ Do not hallucinate!
     TypedConfigManagerInterface $typedConfigManager,
     EntityTypeManagerInterface $entity_type_manager,
     EntityTypeBundleInfoInterface $entity_type_bundle_info,
+    AiProviderPluginManager $aiProviderManager,
   ) {
     parent::__construct($config_factory, $typedConfigManager);
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
+    $this->aiProviderManager = $aiProviderManager;
   }
 
   /**
@@ -75,7 +85,8 @@ Do not hallucinate!
       $container->get('config.factory'),
       $container->get('config.typed'),
       $container->get('entity_type.manager'),
-      $container->get('entity_type.bundle.info')
+      $container->get('entity_type.bundle.info'),
+      $container->get('ai.provider')
     );
   }
 
@@ -101,8 +112,18 @@ Do not hallucinate!
   public function buildForm(array $form, FormStateInterface $form_state) {
     $config = $this->config(static::SETTINGS);
 
-    $form['description'] = [
-      '#markup' => $this->t('<p>Select which content entities should be managed by the AI Content Lifecycle system.</p>'),
+    $form['intro'] = [
+      '#markup' => $this->t('<p>Configuration of the AI:</p>'),
+    ];
+    $llm_model_options = $this->aiProviderManager->getSimpleProviderModelOptions('chat');
+    array_shift($llm_model_options);
+    $form['default_model'] = [
+      '#type' => 'select',
+      "#empty_option" => $this->t('-- Default from AI module (chat) --'),
+      '#title' => $this->t('LLM to use for content evaluation.'),
+      '#default_value' => $config->get('default_model'),
+      '#options' => $llm_model_options,
+      '#description' => $this->t('Select which provider to use for this plugin. See the <a href=":link">Provider overview</a> for details about each provider.', [':link' => '/admin/config/ai/providers']),
     ];
 
     // Add default prompt field at the top
@@ -112,6 +133,10 @@ Do not hallucinate!
       '#default_value' => $config->get('default_prompt') ?: static::DEFAULT_SYSTEM_PROMPT,
       '#description' => $this->t('The default prompt to use when no entity-specific prompt is defined.'),
       '#rows' => 4,
+    ];
+
+    $form['description'] = [
+      '#markup' => $this->t('<p>Select which content entities should be managed by the AI Content Lifecycle system.</p>'),
     ];
 
     // Get all content entity types that have bundles.
@@ -260,6 +285,7 @@ Do not hallucinate!
 
     // Save the default prompt
     $config->set('default_prompt', $form_state->getValue('default_prompt'));
+    $config->set('default_model', $form_state->getValue('default_model'));
 
     $enabled_entity_types = [];
     $enabled_bundles = [];

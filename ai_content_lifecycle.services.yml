@@ -9,3 +9,4 @@ services:
       - '@language_manager'
       - '@logger.factory'
       - '@date.formatter'
+      - '@module_handler'
