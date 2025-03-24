@@ -1,7 +1,9 @@
 name: 'AI Content Lifecycle'
 type: module
-description: 'AI supported Lifecycle Management of your Content'
-package: ai
+description: 'AI supported Lifecycle Management of your Content (Automaticlly marks outdated content)'
+package: AI
 core_version_requirement: ^10 || ^11
 dependencies:
   - ai:ai
+
+configure: ai_content_lifecycle.settings
