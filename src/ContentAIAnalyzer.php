@@ -30,6 +30,24 @@ class ContentAIAnalyzer {
    * @var string
    */
   protected $technicalSystemPrompt = '
+  Language:
+  --------
+  Answer **only** in the language provided in the language element of the input.
+
+  Format:
+  ------
+  If you are unsure, answer with ´{"mark_for_update" : false}´.
+
+  Respond **strictly** in valid rfc8259 JSON format with no additional text, markdown, or formatting.
+  ´{
+    "mark_for_update": true / false,
+    "reason": "string",
+  }´.
+
+  Variables:
+  ---------
+  Today is [ai_content_lifecycle:date]
+
   INPUT:
   ------
   The input is a JSON object with the following structure:
@@ -41,23 +59,11 @@ class ContentAIAnalyzer {
     "language": "string"
   }
 
-  Language:
-  --------
-  Answer **only** in the language provided in the language element of the input.
+  Set content for updating (with mark_for_update):
+  ------------
+  Set mark_for_update true for content when
+  [conditions]
 
-  Format:
-  ------
-  If you are unsure, answer with ´{"outdated" : false}´.
-
-  Respond **strictly** in valid rfc8259 JSON format with no additional text, markdown, or formatting.
-  ´{
-    "outdated": true / false,
-    "reason": "string",
-  }´.
-
-  Variables:
-  ---------
-  Today is [ai_content_lifecycle:date]
   ';
 
   /**
@@ -101,14 +107,15 @@ class ContentAIAnalyzer {
    */
   public function analyzeContent(EntityInterface $entity) {
     $config = $this->configFactory->get('ai_content_lifecycle.settings');
+
     // Extract content from entity
     $content = $this->extractEntityContent($entity);
 
     // Get prompt based on entity type/bundle
     $prompt = $this->getPromptForEntity($entity);
-
-    // Append the technical system prompt
-    $prompt .= $this->technicalSystemPrompt;
+    $pre_prompt = $config->get('pre_prompt');
+    $total_prompt = $pre_prompt . $this->technicalSystemPrompt;
+    $prompt = str_replace('[conditions]', $prompt, $total_prompt);
 
     // Get curren date in dmY format
     $date = $this->dateFormatter->format(time(), 'custom', 'd.m.Y');
@@ -146,8 +153,8 @@ class ContentAIAnalyzer {
       $json = json_decode($result, TRUE);
 
       // If valid JSON and outdated is true, return the reason
-      if (is_array($json) && isset($json['outdated'])) {
-        if (($json['outdated'] === 'true' || $json['outdated'] === TRUE) && !empty($json['reason'])) {
+      if (is_array($json) && isset($json['mark_for_update'])) {
+        if (($json['mark_for_update'] === 'true' || $json['mark_for_update'] === TRUE) && !empty($json['reason'])) {
           return $json['reason'];
         }
         else {
@@ -157,7 +164,7 @@ class ContentAIAnalyzer {
       }
 
       // If valid JSON and outdated is true, return the reason
-      if (is_array($json) && isset($json['outdated']) && $json['outdated'] === 'TRUE' && !empty($json['reason'])) {
+      if (is_array($json) && isset($json['mark_for_update']) && $json['mark_for_update'] === 'TRUE' && !empty($json['reason'])) {
         return $json['reason'];
       }
 
@@ -349,7 +356,7 @@ class ContentAIAnalyzer {
     // Get AI analysis
     $analysis_result = $this->analyzeContent($entity);
 
-    // Update the AI prompt results field
+    // Update the AI evaluation results field
     $lifecycle->set('ai_prompt_results', $analysis_result);
     $lifecycle->save();
 

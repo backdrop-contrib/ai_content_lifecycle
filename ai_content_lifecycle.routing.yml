@@ -2,7 +2,7 @@ ai_content_lifecycle.settings:
   path: '/admin/config/ai/ai-content-lifecycle'
   defaults:
     _form: '\Drupal\ai_content_lifecycle\Form\ContentLifecycleSettingsForm'
-    _title: 'AI Content Lifecycle Settings'
+    _title: 'AI Content Lifecycle'
   requirements:
     _permission: 'administer ai content lifecycle settings'
 

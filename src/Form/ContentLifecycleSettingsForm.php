@@ -25,9 +25,10 @@ class ContentLifecycleSettingsForm extends ConfigFormBase {
   const SETTINGS = 'ai_content_lifecycle.settings';
 
   public const DEFAULT_SYSTEM_PROMPT = '
-You are a helpful Content Life Cycle Manager. You try to identify websites for any inconsistencies or contradictions.
-Furthermore, you also check whether the content is outdated, false, no longer relevant or contains wrong facts.
-Only mark content as outdated if you are really sure that it is outdated and a human should check it.
+You are a helpful Content Life Cycle Manager.
+You try to identify content with inconsistencies or contradictions.
+You also check whether the content is outdated, false, no longer relevant or contains wrong facts.
+Only mark content as mark_for_update if you are really sure that it is outdated and a human should check it.
 Do not hallucinate!
   ';
 
@@ -53,6 +54,13 @@ Do not hallucinate!
   protected $aiProviderManager;
 
   /**
+   * The example prompt.
+   *
+   * @var string
+   */
+  protected $example;
+
+  /**
    * Constructor for ContentLifecycleSettingsForm.
    *
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
@@ -75,6 +83,7 @@ Do not hallucinate!
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->aiProviderManager = $aiProviderManager;
+    $this->example = $this->t('- it mentions the queen of england. ' . PHP_EOL . '- it mentions the kind of danmark.');
   }
 
   /**
@@ -112,12 +121,19 @@ Do not hallucinate!
   public function buildForm(array $form, FormStateInterface $form_state) {
     $config = $this->config(static::SETTINGS);
 
-    $form['intro'] = [
-      '#markup' => $this->t('<p>Configuration of the AI:</p>'),
+    // Ai configuration hidden below.
+    $form['ai_settings'] = [
+      '#title' => $this->t('Advanced LLM settings'),
+      '#type' => 'details',
+      '#tree' => TRUE,
+      '#open' => FALSE,
+      '#weight' => 4,
     ];
+
+    // Model selection.
     $llm_model_options = $this->aiProviderManager->getSimpleProviderModelOptions('chat');
     array_shift($llm_model_options);
-    $form['default_model'] = [
+    $form['ai_settings']['default_model'] = [
       '#type' => 'select',
       "#empty_option" => $this->t('-- Default from AI module (chat) --'),
       '#title' => $this->t('LLM to use for content evaluation.'),
@@ -126,17 +142,27 @@ Do not hallucinate!
       '#description' => $this->t('Select which provider to use for this plugin. See the <a href=":link">Provider overview</a> for details about each provider.', [':link' => '/admin/config/ai/providers']),
     ];
 
-    // Add default prompt field at the top
-    $form['default_prompt'] = [
+    // Pre prompt.
+    $form['ai_settings']['pre_prompt'] = [
       '#type' => 'textarea',
-      '#title' => $this->t('Default AI prompt'),
-      '#default_value' => $config->get('default_prompt') ?: static::DEFAULT_SYSTEM_PROMPT,
-      '#description' => $this->t('The default prompt to use when no entity-specific prompt is defined.'),
+      '#title' => $this->t('Pre prompt'),
+      '#default_value' => $config->get('pre_prompt') ?: static::DEFAULT_SYSTEM_PROMPT,
+      '#description' => $this->t(''),
       '#rows' => 4,
     ];
 
+    // Things to mark for updating.
+    $form['default_prompt'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Mark my content when'),
+      '#default_value' => $config->get('default_prompt'),
+      '#description' => $this->t('Type something like "it mentions the old tax rate of 19% which is now 21%."'),
+      '#rows' => 4,
+      '#placeholder' => $this->example,
+    ];
+
     $form['description'] = [
-      '#markup' => $this->t('<p>Select which content entities should be managed by the AI Content Lifecycle system.</p>'),
+      '#markup' => $this->t('<p>Select which content entities should be checked by the AI Content Lifecycle system.</p>'),
     ];
 
     // Get all content entity types that have bundles.
@@ -144,9 +170,9 @@ Do not hallucinate!
 
     $form['entity_types'] = [
       '#type' => 'details',
-      '#title' => $this->t('Content entity types to manage'),
+      '#title' => $this->t('What to check'),
       '#tree' => TRUE,
-      '#open' => TRUE,
+      '#open' => FALSE,
     ];
 
     // Get saved settings.
@@ -165,12 +191,13 @@ Do not hallucinate!
 
       $form['entity_types'][$entity_type_id]['enabled'] = [
         '#type' => 'checkbox',
-        '#title' => $this->t('Enable @type', ['@type' => $entity_type->getLabel()]),
+        '#title' => $this->t('Check contents of @type', ['@type' => $entity_type->getLabel()]),
         '#default_value' => $enabled_entity_types[$entity_type_id] ?? FALSE,
       ];
 
       // Add view mode selection
       $view_mode_options = $this->getViewModeOptions($entity_type_id);
+      //dd($view_modes);
       if (!empty($view_mode_options)) {
         $form['entity_types'][$entity_type_id]['view_mode'] = [
           '#type' => 'select',
@@ -198,7 +225,7 @@ Do not hallucinate!
 
         $form['entity_types'][$entity_type_id]['bundles'] = [
           '#type' => 'checkboxes',
-          '#title' => $this->t('Bundles to manage'),
+          '#title' => $this->t('Bundles to check'),
           '#options' => $bundle_options,
           '#default_value' => $enabled_bundles[$entity_type_id] ?? [],
           '#states' => [
@@ -211,7 +238,7 @@ Do not hallucinate!
         // Add bundle-specific prompt configurations
         $form['entity_types'][$entity_type_id]['prompt_config'] = [
           '#type' => 'details',
-          '#title' => $this->t('AI prompts for @type bundles', ['@type' => $entity_type->getLabel()]),
+          '#title' => $this->t('Prompt specifically for @type', ['@type' => $entity_type->getLabel()]),
           '#open' => FALSE,
           '#states' => [
             'visible' => [
@@ -224,12 +251,13 @@ Do not hallucinate!
           $prompt_id = $entity_type_id . '_' . $bundle_id;
           $form['entity_types'][$entity_type_id]['prompt_config'][$prompt_id] = [
             '#type' => 'textarea',
-            '#title' => $this->t('AI prompt for @bundle', ['@bundle' => $bundle_info['label']]),
+            '#title' => $this->t('Mark @bundle when', ['@bundle' => $bundle_info['label']]),
             '#default_value' => is_array($bundle_prompts[$entity_type_id][$bundle_id] ?? NULL)
               ? ($bundle_prompts[$entity_type_id][$bundle_id]['value'] ?? '')
               : ($bundle_prompts[$entity_type_id][$bundle_id] ?? ''),
             '#description' => $this->t('AI prompt template for content lifecycle checks for @bundle items. Use [entity:field_name] tokens to include entity field values.',
               ['@bundle' => $bundle_info['label']]),
+            '#placeholder' => $this->example,
             '#rows' => 6,
             '#states' => [
               'visible' => [
@@ -248,7 +276,7 @@ Do not hallucinate!
         $prompt_id = $entity_type_id;
         $form['entity_types'][$entity_type_id]['prompt_config'] = [
           '#type' => 'text_format',
-          '#title' => $this->t('AI prompt for @type', ['@type' => $entity_type->getLabel()]),
+          '#title' => $this->t('Prompt input for @type', ['@type' => $entity_type->getLabel()]),
           '#default_value' => $bundle_prompts[$entity_type_id]['default']['value'] ?? '',
           '#format' => $bundle_prompts[$entity_type_id]['default']['format'] ?? 'plain_text',
           '#description' => $this->t('AI prompt template for content lifecycle checks. Use [entity:field_name] tokens to include entity field values.'),
@@ -285,7 +313,8 @@ Do not hallucinate!
 
     // Save the default prompt
     $config->set('default_prompt', $form_state->getValue('default_prompt'));
-    $config->set('default_model', $form_state->getValue('default_model'));
+    $config->set('default_model', $form_state->getValue('ai_settings')['default_model']);
+    $config->set('pre_prompt', $form_state->getValue('ai_settings')['pre_prompt']);
 
     $enabled_entity_types = [];
     $enabled_bundles = [];
@@ -294,6 +323,7 @@ Do not hallucinate!
     // Get all values from the form
     $values = $form_state->getValues();
     $entity_types = $values['entity_types'];
+    //dd($values);
 
     foreach (array_keys($content_entity_types) as $entity_type_id) {
       // Check if this entity type section exists in the submitted form values
@@ -310,6 +340,9 @@ Do not hallucinate!
             if (isset($entity_types[$entity_type_id]['prompt_config'][$prompt_id])) {
               $bundle_prompts[$entity_type_id][$bundle_id] = $entity_types[$entity_type_id]['prompt_config'][$prompt_id];
             }
+            if (isset($entity_types[$entity_type_id]['view_mode'])) {
+              $view_modes[$entity_type_id][$bundle_id] = $entity_types[$entity_type_id]['view_mode'];
+            }
           }
         }
         else {
@@ -319,12 +352,13 @@ Do not hallucinate!
           }
         }
       }
-    }
-
+    };
+    //dd($view_modes, $bundle_prompts);
     $config
       ->set('enabled_entity_types', $enabled_entity_types)
       ->set('enabled_bundles', $enabled_bundles)
       ->set('bundle_prompts', $bundle_prompts)
+      ->set('view_modes', $view_modes)
       ->save();
 
     parent::submitForm($form, $form_state);

@@ -35,10 +35,20 @@ ai_content_lifecycle.settings:
               label: 'Text format'
     view_modes:
       type: sequence
-      label: 'View modes for content extraction'
+      label: 'Bundle-specific view modes'
       sequence:
-        type: string
-        label: 'View mode'
+        type: sequence
+        label: 'Entity view modes'
+        sequence:
+          type: mapping
+          label: 'Bundle view modes'
+          mapping:
+            value:
+              type: text
+              label: 'View mode'
+            format:
+              type: string
+              label: 'Text format'
     default_prompt:
       type: text
       label: 'Default AI prompt'

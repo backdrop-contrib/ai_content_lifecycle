@@ -100,7 +100,7 @@ display:
           entity_type: content_life_cycle
           entity_field: ai_prompt_results
           plugin_id: field
-          label: 'AI Prompt Results'
+          label: 'AI evaluation results'
           exclude: false
           alter:
             alter_text: false

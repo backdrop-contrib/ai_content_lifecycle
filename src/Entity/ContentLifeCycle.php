@@ -215,7 +215,7 @@ final class ContentLifeCycle extends RevisionableContentEntityBase implements Co
       ->setDescription(t('The time that the content life cycle was last edited.'));
 
     $fields['ai_prompt_results'] = BaseFieldDefinition::create('text_long')
-      ->setLabel(t('AI Prompt Results'))
+      ->setLabel(t('AI evaluation results'))
       ->setDescription(t('The results of the AI prompt check.'))
       ->setRevisionable(TRUE)
       ->setTranslatable(TRUE)
