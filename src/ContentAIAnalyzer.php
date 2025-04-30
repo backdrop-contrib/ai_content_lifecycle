@@ -75,16 +75,16 @@ class ContentAIAnalyzer {
   public function analyzeContent(EntityInterface $entity) {
     $config = $this->configFactory->get('ai_content_lifecycle.settings');
 
-    // Extract content from entity
+    // Extract content from entity.
     $content = $this->extractEntityContent($entity);
 
-    // Get prompt based on entity type/bundle
+    // Get prompt based on entity type/bundle.
     $entity_prompt = $this->getPromptForEntity($entity);
     $pre_prompt = $config->get('pre_prompt');
     $total_prompt = $pre_prompt . $this->technicalSystemPrompt;
     $prompt = str_replace('[conditions]', $entity_prompt, $total_prompt);
 
-    // Get curren date in dmY format
+    // Get curren date in dmY format.
     $date = $this->dateFormatter->format(time(), 'custom', 'd.m.Y');
     $prompt = str_replace('[ai_content_lifecycle:date]', $date, $prompt);
     $prompt = str_replace('[lang]', $this->languageManager->getCurrentLanguage()->getName(), $prompt);
@@ -104,7 +104,6 @@ class ContentAIAnalyzer {
       // Get the default AI provider for chat operations.
       $sets = $this->aiProvider->getDefaultProviderForOperationType('chat');
     } else {
-
       // Get the overridden AI provider for chat operations.
       $parts = explode('__', $config_model);
       $sets['model_id'] = $parts[1];
@@ -146,6 +145,7 @@ class ContentAIAnalyzer {
         $response = $provider->chat($messages, $sets['model_id'])->getNormalized();
         return $response->getText();
       }
+      dd('FAILED TO PARSE');
       return NULL;
     }
     catch (\Exception $e) {
@@ -172,14 +172,14 @@ class ContentAIAnalyzer {
     $entity_type_id = $entity->getEntityTypeId();
     $bundle = method_exists($entity, 'bundle') ? $entity->bundle() : $entity->getEntityTypeId();
 
-    // Try to get bundle-specific prompt
+    // Try to get bundle-specific prompt.
     if (isset($bundle_prompts[$entity_type_id][$bundle])) {
       return is_array($bundle_prompts[$entity_type_id][$bundle])
         ? $bundle_prompts[$entity_type_id][$bundle]['value']
         : $bundle_prompts[$entity_type_id][$bundle];
     }
 
-    // Try entity-type prompt
+    // Try entity-type prompt.
     if (isset($bundle_prompts[$entity_type_id]['default'])) {
       return is_array($bundle_prompts[$entity_type_id]['default'])
         ? $bundle_prompts[$entity_type_id]['default']['value']
