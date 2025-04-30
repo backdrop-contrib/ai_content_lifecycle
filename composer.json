@@ -10,6 +10,11 @@
             "name": "ayalon",
             "homepage": "https://www.drupal.org/u/ayalon",
             "role": "Maintainer"
+        },
+        {
+            "name": "woutersg",
+            "homepage": "https://www.drupal.org/u/wouters_f",
+            "role": "Maintainer"
         }
     ],
     "support": {

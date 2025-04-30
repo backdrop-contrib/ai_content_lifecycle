@@ -35,3 +35,4 @@ The module provides Views integration with relationships to connect content life
 Current maintainers for Drupal 10:
 
 - ayalon - https://www.drupal.org/u/ayalon
+- wouters_f - https://www.drupal.org/u/wouters_f

@@ -35,7 +35,7 @@ display:
           entity_type: node
           entity_field: title
           plugin_id: field
-          label: Titel
+          label: Title
           exclude: false
           alter:
             alter_text: false
@@ -228,7 +228,7 @@ display:
           entity_type: content_life_cycle
           entity_field: created
           plugin_id: field
-          label: 'Geschrieben am'
+          label: 'Created on'
           exclude: false
           alter:
             alter_text: false
@@ -305,7 +305,7 @@ display:
           entity_type: content_life_cycle
           entity_field: changed
           plugin_id: field
-          label: Geändert
+          label: Changed
           exclude: false
           alter:
             alter_text: false
@@ -436,22 +436,22 @@ display:
             previous: ‹‹
           expose:
             items_per_page: false
-            items_per_page_label: 'Elemente pro Seite'
+            items_per_page_label: 'Elements per Page'
             items_per_page_options: '5, 10, 25, 50'
             items_per_page_options_all: false
             items_per_page_options_all_label: '- Alle -'
             offset: false
-            offset_label: Versatz
+            offset_label: Offset
       exposed_form:
         type: basic
         options:
-          submit_button: Anwenden
+          submit_button: Submit
           reset_button: false
-          reset_button_label: Zurücksetzen
-          exposed_sorts_label: Sortierung
+          reset_button_label: Reset
+          exposed_sorts_label: Sorting
           expose_sort_order: true
-          sort_asc_label: Aufsteigend
-          sort_desc_label: Absteigend
+          sort_asc_label: Ascending
+          sort_desc_label: Descending
       access:
         type: perm
         options:
@@ -482,7 +482,7 @@ display:
           field: node_relationship
           relationship: none
           group_type: group
-          admin_label: Beitrag
+          admin_label: Contribution
           entity_type: content_life_cycle
           plugin_id: standard
           required: false
