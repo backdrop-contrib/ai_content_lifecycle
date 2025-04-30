@@ -25,11 +25,39 @@ class ContentLifecycleSettingsForm extends ConfigFormBase {
   const SETTINGS = 'ai_content_lifecycle.settings';
 
   public const DEFAULT_SYSTEM_PROMPT = '
-You are a helpful Content Life Cycle Manager.
-You try to identify content with inconsistencies or contradictions.
-You also check whether the content is outdated, false, no longer relevant or contains wrong facts.
-Only mark content as mark_for_update if you are really sure that it is outdated and a human should check it.
-Do not hallucinate!
+Language:
+--------
+Answer **only** in the following language: [lang]
+
+Format:
+------
+If you are unsure, answer with ´{"mark_for_update" : false}´.
+
+Respond **strictly** in valid rfc8259 JSON format with no additional text, markdown, or formatting.
+´{
+  "mark_for_update": true / false,
+  "reason": "string",
+}´.
+
+Variables:
+---------
+Today is [ai_content_lifecycle:date]
+
+INPUT:
+------
+The input is a JSON object with the following structure:
+{
+  "title": "string",
+  "content": "string",
+  "current_date": "string",
+  "updated_date": "string",
+  "language": "string"
+}
+
+INSTRUCTION:
+------------
+Set mark_for_update true for content when
+[conditions]
   ';
 
   /**
@@ -83,7 +111,10 @@ Do not hallucinate!
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->aiProviderManager = $aiProviderManager;
-    $this->example = $this->t('- it mentions the queen of england. ' . PHP_EOL . '- it mentions the kind of danmark.');
+    $this->example = $this->t('- it mentions the queen of england. '
+      . PHP_EOL . '- it mentions the kind of danmark.'
+      . PHP_EOL . '- it contains inconsistencies or contradictions'
+      . PHP_EOL . '- you are really sure that it is outdated and a human should check it');
   }
 
   /**
@@ -145,10 +176,13 @@ Do not hallucinate!
     // Pre prompt.
     $form['ai_settings']['pre_prompt'] = [
       '#type' => 'textarea',
+      '#rows' => 25,
       '#title' => $this->t('Pre prompt'),
       '#default_value' => $config->get('pre_prompt') ?: static::DEFAULT_SYSTEM_PROMPT,
-      '#description' => $this->t(''),
-      '#rows' => 4,
+      '#description' => $this->t('The prompt used for marking content. you can use the following tokens:
+      <br><b>[conditions]</b> (the reasons mentioned above why content might be requiring an update)
+      <br><b>[ai_content_lifecycle:date]</b> The current date
+      <br><b>[lang]</b> The current language of the admin interface'),
     ];
 
     // Things to mark for updating.

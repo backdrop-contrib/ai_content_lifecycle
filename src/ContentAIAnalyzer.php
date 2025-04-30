@@ -30,39 +30,6 @@ class ContentAIAnalyzer {
    * @var string
    */
   protected $technicalSystemPrompt = '
-  Language:
-  --------
-  Answer **only** in the language provided in the language element of the input.
-
-  Format:
-  ------
-  If you are unsure, answer with ´{"mark_for_update" : false}´.
-
-  Respond **strictly** in valid rfc8259 JSON format with no additional text, markdown, or formatting.
-  ´{
-    "mark_for_update": true / false,
-    "reason": "string",
-  }´.
-
-  Variables:
-  ---------
-  Today is [ai_content_lifecycle:date]
-
-  INPUT:
-  ------
-  The input is a JSON object with the following structure:
-  {
-    "title": "string",
-    "content": "string",
-    "current_date": "string",
-    "updated_date": "string",
-    "language": "string"
-  }
-
-  Set content for updating (with mark_for_update):
-  ------------
-  Set mark_for_update true for content when
-  [conditions]
 
   ';
 
@@ -120,6 +87,8 @@ class ContentAIAnalyzer {
     // Get curren date in dmY format
     $date = $this->dateFormatter->format(time(), 'custom', 'd.m.Y');
     $prompt = str_replace('[ai_content_lifecycle:date]', $date, $prompt);
+
+    $prompt = str_replace('[lang]', $this->languageManager->getCurrentLanguage()->getName(), $prompt);
 
     // Allow overriding of the prompt in other modules (like tone of voice or tokens).
     $this->moduleHandler->alter('ai_content_lifecycle_prompt', $prompt);
