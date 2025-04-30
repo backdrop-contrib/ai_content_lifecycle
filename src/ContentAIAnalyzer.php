@@ -79,65 +79,73 @@ class ContentAIAnalyzer {
     $content = $this->extractEntityContent($entity);
 
     // Get prompt based on entity type/bundle
-    $prompt = $this->getPromptForEntity($entity);
+    $entity_prompt = $this->getPromptForEntity($entity);
     $pre_prompt = $config->get('pre_prompt');
     $total_prompt = $pre_prompt . $this->technicalSystemPrompt;
-    $prompt = str_replace('[conditions]', $prompt, $total_prompt);
+    $prompt = str_replace('[conditions]', $entity_prompt, $total_prompt);
 
     // Get curren date in dmY format
     $date = $this->dateFormatter->format(time(), 'custom', 'd.m.Y');
     $prompt = str_replace('[ai_content_lifecycle:date]', $date, $prompt);
-
     $prompt = str_replace('[lang]', $this->languageManager->getCurrentLanguage()->getName(), $prompt);
+    $prompt = str_replace('[context]', $content['title'] . $content['content'] , $prompt);
 
     // Allow overriding of the prompt in other modules (like tone of voice or tokens).
     $this->moduleHandler->alter('ai_content_lifecycle_prompt', $prompt);
 
-    // Create the chat messages with date in dmY and content in triple quotes
     $messages = new ChatInput([
-      new ChatMessage('system', $prompt),
-      new ChatMessage('user', json_encode($content)),
+      new ChatMessage('system', 'You are a agent that responds with only XTRUE or XFALSE. You evaluate CONTEXT based on criteria the user provides.
+      You return if the content should be marked for updating (XTRUE) or not(XFALSE).'),
+      new ChatMessage('user', $prompt),
     ]);
 
     $config_model = $config->get('default_model');
     if ($config_model == NULL) {
-      // Get the default AI provider for chat operations
+      // Get the default AI provider for chat operations.
       $sets = $this->aiProvider->getDefaultProviderForOperationType('chat');
     } else {
 
-      // Get the overridden AI provider for chat operations
+      // Get the overridden AI provider for chat operations.
       $parts = explode('__', $config_model);
       $sets['model_id'] = $parts[1];
       $sets['provider_id'] = $parts[0];
     }
 
     try {
-      // Create provider instance and send the chat request
+      // Create provider instance and send the chat request.
       $provider = $this->aiProvider->createInstance($sets['provider_id']);
       $response = $provider->chat($messages, $sets['model_id'])->getNormalized();
-
       $result = $response->getText();
+      if (str_contains($result,'XTRUE')) {
+        $provider = $this->aiProvider->createInstance($sets['provider_id']);
+        $subPrompt = '
+        VARIABLES
+        ----------
+        Today is [ai_content_lifecycle:date]
 
-      // Parse the JSON response
-      $json = json_decode($result, TRUE);
+        INSTRUCTION
+        -----------
+        The below content was marked for review (context).
+        The content was marked when
+        [conditions]
 
-      // If valid JSON and outdated is true, return the reason
-      if (is_array($json) && isset($json['mark_for_update'])) {
-        if (($json['mark_for_update'] === 'true' || $json['mark_for_update'] === TRUE) && !empty($json['reason'])) {
-          return $json['reason'];
-        }
-        else {
-          // Content is not outdated
-          return NULL;
-        }
+        Describe in [lang] in one or two sentences which sentences triggered you to mark this for reviewing always referring to the conditions above.
+
+        CONTEXT
+        -------
+        [context]
+        ';
+        $subPrompt = str_replace('[ai_content_lifecycle:date]', $date, $subPrompt);
+        $subPrompt = str_replace('[lang]', $this->languageManager->getCurrentLanguage()->getName(), $subPrompt);
+        $subPrompt = str_replace('[context]', $content['title'] . $content['content'] , $subPrompt);
+        $subPrompt = str_replace('[conditions]', $entity_prompt , $subPrompt);
+        $messages = new ChatInput([
+          new ChatMessage('system', 'You are a content evaluator, helping web editors. You describe why content should be updated.'),
+          new ChatMessage('user', $subPrompt),
+        ]);
+        $response = $provider->chat($messages, $sets['model_id'])->getNormalized();
+        return $response->getText();
       }
-
-      // If valid JSON and outdated is true, return the reason
-      if (is_array($json) && isset($json['mark_for_update']) && $json['mark_for_update'] === 'TRUE' && !empty($json['reason'])) {
-        return $json['reason'];
-      }
-
-      // If not outdated or invalid format, return null
       return NULL;
     }
     catch (\Exception $e) {

@@ -381,7 +381,7 @@ display:
           admin_label: ''
           entity_type: content_life_cycle
           plugin_id: entity_operations
-          label: Aktionslinks
+          label: Action links
           exclude: false
           alter:
             alter_text: false

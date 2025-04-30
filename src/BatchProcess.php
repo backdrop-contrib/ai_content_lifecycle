@@ -56,7 +56,7 @@ class BatchProcess {
     }
 
     // Process entities in batches of 10
-    $limit = 10;
+    $limit = 2;
     $entity_ids = array_slice(
       $context['sandbox']['entity_ids'],
       $context['sandbox']['progress'],
@@ -87,10 +87,9 @@ class BatchProcess {
             continue;
           }
 
-          // Continue with analysis for other statuses
+          // Continue with analysis for other statuses.
           $result = $analyzer->analyzeContent($entity);
-
-          // Only update lifecycle entity if content analysis returns results
+          // Only update lifecycle entity if content analysis returns results.
           if ($result !== NULL) {
             $lifecycle->setReferencedEntity($entity);
             $lifecycle->set('ai_prompt_results', $result);
@@ -102,10 +101,9 @@ class BatchProcess {
         else {
           // Check if content needs analysis for new entities
           $result = $analyzer->analyzeContent($entity);
-
-          // Only create lifecycle entity if content analysis returns results
+          // Only create lifecycle entity if content analysis returns results.
           if ($result !== NULL) {
-            // Create new lifecycle entity
+            // Create new lifecycle entity.
             $lifecycle = $lifecycle_storage->create([
               'label' => $entity->label() ?? 'Lifecycle for ' . $entity_type_id . ':' . $entity->id(),
             ]);

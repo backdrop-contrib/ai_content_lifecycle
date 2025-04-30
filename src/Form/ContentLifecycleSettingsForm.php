@@ -25,39 +25,24 @@ class ContentLifecycleSettingsForm extends ConfigFormBase {
   const SETTINGS = 'ai_content_lifecycle.settings';
 
   public const DEFAULT_SYSTEM_PROMPT = '
-Language:
---------
-Answer **only** in the following language: [lang]
-
 Format:
-------
-If you are unsure, answer with ´{"mark_for_update" : false}´.
-
-Respond **strictly** in valid rfc8259 JSON format with no additional text, markdown, or formatting.
-´{
-  "mark_for_update": true / false,
-  "reason": "string",
-}´.
+ ------
+Respond XTRUE or XFALSE, nothing else, no pleasantries or other things.
 
 Variables:
----------
-Today is [ai_content_lifecycle:date]
+ ---------
+ Today is [ai_content_lifecycle:date]
 
-INPUT:
-------
-The input is a JSON object with the following structure:
-{
-  "title": "string",
-  "content": "string",
-  "current_date": "string",
-  "updated_date": "string",
-  "language": "string"
-}
-
-INSTRUCTION:
+INSTRUCTIONS
 ------------
-Set mark_for_update true for content when
+return XTRUE when the content
 [conditions]
+
+Otherwise return XFALSE
+
+This is the content you have evaluate:
+----------------------------------------
+[context]
   ';
 
   /**
@@ -112,7 +97,7 @@ Set mark_for_update true for content when
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->aiProviderManager = $aiProviderManager;
     $this->example = $this->t('- it mentions the queen of england. '
-      . PHP_EOL . '- it mentions the kind of danmark.'
+      . PHP_EOL . '- it mentions the king of Germany.'
       . PHP_EOL . '- it contains inconsistencies or contradictions'
       . PHP_EOL . '- you are really sure that it is outdated and a human should check it');
   }
@@ -229,9 +214,8 @@ Set mark_for_update true for content when
         '#default_value' => $enabled_entity_types[$entity_type_id] ?? FALSE,
       ];
 
-      // Add view mode selection
+      // Add view mode selection.
       $view_mode_options = $this->getViewModeOptions($entity_type_id);
-      //dd($view_modes);
       if (!empty($view_mode_options)) {
         $form['entity_types'][$entity_type_id]['view_mode'] = [
           '#type' => 'select',
@@ -324,14 +308,12 @@ Set mark_for_update true for content when
       }
     }
 
-    // Add batch create button
+    // Add batch create button as a submit button
     $form['actions']['batch_create'] = [
-      '#type' => 'link',
-      '#title' => $this->t('Analyze content'),
-      '#url' => Url::fromRoute('ai_content_lifecycle.batch_create'),
-      '#attributes' => [
-        'class' => ['button', 'button--primary'],
-      ],
+      '#type' => 'submit',
+      '#value' => $this->t('Analyze content'),
+      '#button_type' => 'primary',
+      '#submit' => ['::submitForm', '::redirectToConfirm'],
       '#weight' => 5,
     ];
 
@@ -353,22 +335,22 @@ Set mark_for_update true for content when
     $enabled_entity_types = [];
     $enabled_bundles = [];
     $bundle_prompts = [];
+    $view_modes = [];
 
     // Get all values from the form
     $values = $form_state->getValues();
     $entity_types = $values['entity_types'];
-    //dd($values);
 
     foreach (array_keys($content_entity_types) as $entity_type_id) {
-      // Check if this entity type section exists in the submitted form values
+      // Check if this entity type section exists in the submitted form values.
       if (isset($entity_types[$entity_type_id]['enabled']) && $entity_types[$entity_type_id]['enabled']) {
         $enabled_entity_types[$entity_type_id] = TRUE;
 
-        // Check if this entity type has bundles
+        // Check if this entity type has bundles.
         if (isset($entity_types[$entity_type_id]['bundles'])) {
           $enabled_bundles[$entity_type_id] = array_filter($entity_types[$entity_type_id]['bundles']);
 
-          // Save prompts for each bundle
+          // Save prompts for each bundle.
           foreach (array_keys(array_filter($entity_types[$entity_type_id]['bundles'])) as $bundle_id) {
             $prompt_id = $entity_type_id . '_' . $bundle_id;
             if (isset($entity_types[$entity_type_id]['prompt_config'][$prompt_id])) {
@@ -380,14 +362,13 @@ Set mark_for_update true for content when
           }
         }
         else {
-          // For entity types without bundles
+          // For entity types without bundles.
           if (isset($entity_types[$entity_type_id]['prompt_config'])) {
             $bundle_prompts[$entity_type_id]['default'] = $entity_types[$entity_type_id]['prompt_config'];
           }
         }
       }
     };
-    //dd($view_modes, $bundle_prompts);
     $config
       ->set('enabled_entity_types', $enabled_entity_types)
       ->set('enabled_bundles', $enabled_bundles)
@@ -396,6 +377,13 @@ Set mark_for_update true for content when
       ->save();
 
     parent::submitForm($form, $form_state);
+  }
+
+  /**
+   * Redirects to the confirmation page after form submission.
+   */
+  public function redirectToConfirm(array &$form, FormStateInterface $form_state) {
+    $form_state->setRedirect('ai_content_lifecycle.batch_confirm');
   }
 
   /**

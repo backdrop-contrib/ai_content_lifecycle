@@ -6,6 +6,14 @@ ai_content_lifecycle.settings:
   requirements:
     _permission: 'administer ai content lifecycle settings'
 
+ai_content_lifecycle.batch_confirm:
+  path: '/admin/config/ai/ai-content-lifecycle/batch-confirm'
+  defaults:
+    _controller: '\Drupal\ai_content_lifecycle\Controller\ContentLifecycleBatchController::batchConfirmation'
+    _title: 'Confirm Content Analysis'
+  requirements:
+    _permission: 'administer ai content lifecycle settings'
+
 ai_content_lifecycle.batch_create:
   path: '/admin/config/ai/ai-content-lifecycle/batch-create'
   defaults:

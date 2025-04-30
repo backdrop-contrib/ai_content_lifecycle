@@ -1,0 +1,38 @@
+{#
+/**
+ * @file
+ * Default theme implementation to display the AI Content Lifecycle confirmation page.
+ *
+ * Available variables:
+ * - confirmation: The confirmation data structure.
+ *
+ * @ingroup themeable
+ */
+#}
+<div class="ai-content-lifecycle-confirmation">
+  <div class="confirmation-message">
+    {{ confirmation.message }}
+  </div>
+
+  <div class="confirmation-details">
+    <div class="model-info">
+      <h3>{{ 'AI Model Configuration'|t }}</h3>
+      {{ confirmation.model.info }}
+    </div>
+
+    <div class="prompt-info">
+      <h3>{{ 'Content will be marked for review when'|t }}</h3>
+      <div class="prompt-preview">{{ confirmation.prompt.info }}</div>
+    </div>
+
+    <div class="content-types-info">
+      <h3>{{ 'Content to be analyzed'|t }}</h3>
+      {{ confirmation.content_types.list }}
+    </div>
+  </div>
+
+  <div class="confirmation-actions">
+    {{ confirmation.actions.cancel }}
+    {{ confirmation.actions.process }}
+  </div>
+</div>
