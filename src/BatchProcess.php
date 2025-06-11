@@ -43,6 +43,10 @@ class BatchProcess {
         $query->condition($entity_storage->getEntityType()->getKey('bundle'), $bundle_id);
       }
 
+      if ($entity_storage->getEntityType()->hasKey('status')) {
+        $query->condition('status', 1);
+      }
+
       $entity_ids = $query->accessCheck(FALSE)->execute();
       $total = count($entity_ids);
 

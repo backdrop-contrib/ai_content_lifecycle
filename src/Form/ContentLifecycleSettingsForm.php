@@ -9,7 +9,6 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -84,6 +83,8 @@ This is the content you have evaluate:
    *   The entity type manager.
    * @param \Drupal\Core\Entity\EntityTypeBundleInfoInterface $entity_type_bundle_info
    *   The entity type bundle info.
+   * @param \Drupal\ai\AiProviderPluginManager $aiProviderManager
+   *   The AI provider plugin manager.
    */
   public function __construct(
     ConfigFactoryInterface $config_factory,
@@ -96,10 +97,8 @@ This is the content you have evaluate:
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->aiProviderManager = $aiProviderManager;
-    $this->example = $this->t('- it mentions the queen of england. '
-      . PHP_EOL . '- it mentions the king of Germany.'
-      . PHP_EOL . '- it contains inconsistencies or contradictions'
-      . PHP_EOL . '- you are really sure that it is outdated and a human should check it');
+    $this->example = $this->t("- it mentions the queen of england.\n- it mentions the king of Germany.\n- it contains inconsistencies or contradictions\n- you are really sure that it is outdated and a human should check it");
+
   }
 
   /**
@@ -368,7 +367,7 @@ This is the content you have evaluate:
           }
         }
       }
-    };
+    }
     $config
       ->set('enabled_entity_types', $enabled_entity_types)
       ->set('enabled_bundles', $enabled_bundles)

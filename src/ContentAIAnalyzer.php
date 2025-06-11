@@ -50,6 +50,8 @@ class ContentAIAnalyzer {
    *   The logger channel factory service.
    * @param \Drupal\Core\Datetime\DateFormatterInterface $dateFormatter
    *   The date formatter service.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *   The module handler service.
    */
   public function __construct(
     protected ConfigFactoryInterface $configFactory,
@@ -88,14 +90,14 @@ class ContentAIAnalyzer {
     $date = $this->dateFormatter->format(time(), 'custom', 'd.m.Y');
     $prompt = str_replace('[ai_content_lifecycle:date]', $date, $prompt);
     $prompt = str_replace('[lang]', $this->languageManager->getCurrentLanguage()->getName(), $prompt);
-    $prompt = str_replace('[context]', $content['title'] . $content['content'] , $prompt);
+    $prompt = str_replace('[context]', $content['title'] . $content['content'], $prompt);
 
     // Allow overriding of the prompt in other modules (like tone of voice or tokens).
     $this->moduleHandler->alter('ai_content_lifecycle_prompt', $prompt);
 
     $messages = new ChatInput([
-      new ChatMessage('system', 'You are a agent that responds with only XTRUE or XFALSE. You evaluate CONTEXT based on criteria the user provides.
-      You return if the content should be marked for updating (XTRUE) or not(XFALSE).'),
+      new ChatMessage('system', 'You are an agent that responds with only XTRUE or XFALSE. You evaluate CONTEXT based on the INSTRUCTION the user provides.
+      You return (XTRUE) if the INSTRUCTION provided indicate that the content should be update or (XFALSE) if not.'),
       new ChatMessage('user', $prompt),
     ]);
 
@@ -103,7 +105,8 @@ class ContentAIAnalyzer {
     if ($config_model == NULL) {
       // Get the default AI provider for chat operations.
       $sets = $this->aiProvider->getDefaultProviderForOperationType('chat');
-    } else {
+    }
+    else {
       // Get the overridden AI provider for chat operations.
       $parts = explode('__', $config_model);
       $sets['model_id'] = $parts[1];
@@ -115,7 +118,7 @@ class ContentAIAnalyzer {
       $provider = $this->aiProvider->createInstance($sets['provider_id']);
       $response = $provider->chat($messages, $sets['model_id'])->getNormalized();
       $result = $response->getText();
-      if (str_contains($result,'XTRUE')) {
+      if (str_contains($result, 'XTRUE')) {
         $provider = $this->aiProvider->createInstance($sets['provider_id']);
         $subPrompt = '
         VARIABLES
@@ -125,7 +128,7 @@ class ContentAIAnalyzer {
         INSTRUCTION
         -----------
         The below content was marked for review (context).
-        The content was marked when
+        The content should be marked when
         [conditions]
 
         Describe in [lang] in one or two sentences which sentences triggered you to mark this for reviewing always referring to the conditions above.
@@ -136,8 +139,8 @@ class ContentAIAnalyzer {
         ';
         $subPrompt = str_replace('[ai_content_lifecycle:date]', $date, $subPrompt);
         $subPrompt = str_replace('[lang]', $this->languageManager->getCurrentLanguage()->getName(), $subPrompt);
-        $subPrompt = str_replace('[context]', $content['title'] . $content['content'] , $subPrompt);
-        $subPrompt = str_replace('[conditions]', $entity_prompt , $subPrompt);
+        $subPrompt = str_replace('[context]', $content['title'] . $content['content'], $subPrompt);
+        $subPrompt = str_replace('[conditions]', $entity_prompt, $subPrompt);
         $messages = new ChatInput([
           new ChatMessage('system', 'You are a content evaluator, helping web editors. You describe why content should be updated.'),
           new ChatMessage('user', $subPrompt),
@@ -145,7 +148,6 @@ class ContentAIAnalyzer {
         $response = $provider->chat($messages, $sets['model_id'])->getNormalized();
         return $response->getText();
       }
-      dd('FAILED TO PARSE');
       return NULL;
     }
     catch (\Exception $e) {
@@ -224,6 +226,9 @@ class ContentAIAnalyzer {
       // Fallback to text fields if rendering fails
       $content['content'] = $converter->convert($this->extractTextFieldsContent($entity));
     }
+
+    // Strip empty lines and trim content
+    $content['content'] = trim(preg_replace('/\n\s*\n/', "\n", $content['content']));
 
     // Add updated date if available
     if ($entity->hasField('updated')) {

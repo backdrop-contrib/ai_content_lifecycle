@@ -123,7 +123,7 @@ class ContentLifecycleBatchController extends ControllerBase {
 
     return $confirmation;
   }
-  
+
   /**
    * Builds the HTML list of content types to be analyzed.
    *
@@ -139,7 +139,7 @@ class ContentLifecycleBatchController extends ControllerBase {
     $content_types = [];
     $bundle_prompts = $this->configFactory->get('ai_content_lifecycle.settings')->get('bundle_prompts') ?: [];
     $default_prompt = $this->configFactory->get('ai_content_lifecycle.settings')->get('default_prompt');
-    
+
     foreach ($enabled_entity_types as $entity_type_id => $enabled) {
       if (!$enabled) {
         continue;
@@ -152,13 +152,13 @@ class ContentLifecycleBatchController extends ControllerBase {
           '#markup' => $entity_type->getLabel(),
         ],
       ];
-      
+
       // Add entity-type specific prompt if exists
       if (isset($bundle_prompts[$entity_type_id]['default'])) {
-        $entity_prompt = is_array($bundle_prompts[$entity_type_id]['default']) 
-          ? $bundle_prompts[$entity_type_id]['default']['value'] 
+        $entity_prompt = is_array($bundle_prompts[$entity_type_id]['default'])
+          ? $bundle_prompts[$entity_type_id]['default']['value']
           : $bundle_prompts[$entity_type_id]['default'];
-        
+
         if (!empty($entity_prompt)) {
           $item['prompt'] = [
             '#type' => 'container',
@@ -178,7 +178,7 @@ class ContentLifecycleBatchController extends ControllerBase {
       if (isset($enabled_bundles[$entity_type_id]) && !empty($enabled_bundles[$entity_type_id])) {
         $bundles = $this->entityTypeBundleInfo->getBundleInfo($entity_type_id);
         $bundle_list = [];
-        
+
         foreach ($enabled_bundles[$entity_type_id] as $bundle_id => $bundle_enabled) {
           if ($bundle_enabled) {
             $bundle_item = [
@@ -187,13 +187,13 @@ class ContentLifecycleBatchController extends ControllerBase {
                 '#markup' => $bundles[$bundle_id]['label'],
               ],
             ];
-            
+
             // Add bundle-specific prompt if exists
             if (isset($bundle_prompts[$entity_type_id][$bundle_id])) {
-              $bundle_prompt = is_array($bundle_prompts[$entity_type_id][$bundle_id]) 
-                ? $bundle_prompts[$entity_type_id][$bundle_id]['value'] 
+              $bundle_prompt = is_array($bundle_prompts[$entity_type_id][$bundle_id])
+                ? $bundle_prompts[$entity_type_id][$bundle_id]['value']
                 : $bundle_prompts[$entity_type_id][$bundle_id];
-              
+
               if (!empty($bundle_prompt)) {
                 $bundle_item['prompt'] = [
                   '#type' => 'container',
@@ -209,13 +209,13 @@ class ContentLifecycleBatchController extends ControllerBase {
                 ];
               }
             }
-            
+
             $bundle_list[] = [
               'data' => $bundle_item,
             ];
           }
         }
-        
+
         if (!empty($bundle_list)) {
           $item['bundles'] = [
             '#theme' => 'item_list',

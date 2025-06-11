@@ -51,7 +51,7 @@ function template_preprocess_ai_content_lifecycle_confirmation(array &$variables
     $variables['attributes']['class'] = [];
   }
   $variables['attributes']['class'][] = 'ai-content-lifecycle-confirmation';
-  
+
   // Attach the CSS.
   $variables['#attached']['library'][] = 'ai_content_lifecycle/confirmation';
 }
