@@ -15,6 +15,7 @@ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
 use League\HTMLToMarkdown\HtmlConverter;
 
 /**
@@ -208,31 +209,42 @@ class ContentAIAnalyzer {
     $entity_type_id = $entity->getEntityTypeId();
 
     // Get configured view mode or fall back to search_index
-    $config = $this->configFactory->get('ai_content_lifecycle . settings');
+    $config = $this->configFactory->get('ai_content_lifecycle.settings');
     $view_modes = $config->get('view_modes') ?: [];
     $view_mode = $view_modes[$entity_type_id] ?? 'search_index';
 
     // Add title/label for any entity type
     $content['title'] = $entity->label();
+    $content['content'] = '';
 
-    try {
-      // Try to render the entity in the configured view mode
-      $view_builder = $this->entityTypeManager->getViewBuilder($entity_type_id);
-      $build = $view_builder->view($entity, $view_mode);
-      $rendered = $this->renderer->renderInIsolation($build);
-      $content['content'] = $converter->convert($rendered->__toString());
-    }
-    catch (\Exception $e) {
-      // Fallback to text fields if rendering fails
-      $content['content'] = $converter->convert($this->extractTextFieldsContent($entity));
+    // In a headless context, it might not be possible to render the entity. In this case,
+    // the user can use the hook to prepare the content.
+    $hook = 'ai_content_lifecycle_prepare_content';
+    $this->moduleHandler->invokeAllWith($hook, function (callable $hook, string $module) use (&$content, $entity) {
+      $content[$module] = $hook($content, $entity);
+    });
+
+    if (empty($content['content'])) {
+      try {
+        // Try to render the entity in the configured view mode
+        $view_builder = $this->entityTypeManager->getViewBuilder($entity_type_id);
+        $build = $view_builder->view($entity, $view_mode);
+        $rendered = $this->renderer->renderInIsolation($build);
+        $content['content'] = $converter->convert($rendered->__toString());
+      }
+      catch (\Exception $e) {
+        // Fallback to text fields if rendering fails
+        $content['content'] = $converter->convert($this->extractTextFieldsContent($entity));
+      }
     }
 
     // Strip empty lines and trim content
     $content['content'] = trim(preg_replace('/\n\s*\n/', "\n", $content['content']));
 
     // Add updated date if available
-    if ($entity->hasField('updated')) {
-      $date = $this->dateFormatter->format($entity->get('updated')->value, 'medium');
+    $content['updated'] = NULL;
+    if ($entity instanceof FieldableEntityInterface && $entity->hasField('changed')) {
+      $date = $this->dateFormatter->format($entity->getChangedTime(), 'medium');
       $content['updated'] = $date;
     }
 
@@ -240,10 +252,13 @@ class ContentAIAnalyzer {
     $default_language = $this->languageManager->getDefaultLanguage()->getId();
     $content['language'] = $default_language;
 
-    if ($entity->hasField('langcode')) {
+    if ($entity instanceof FieldableEntityInterface && $entity->hasField('langcode')) {
       $language = $entity->get('langcode')->value;
       $content['language'] = $language;
     }
+
+    // Hook to allow other modules to alter the content.
+    $this->moduleHandler->alter('ai_content_lifecycle_content', $content, $entity);
 
     return $content;
   }

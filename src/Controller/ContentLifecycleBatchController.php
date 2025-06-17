@@ -77,7 +77,6 @@ class ContentLifecycleBatchController extends ControllerBase {
     $config = $this->configFactory->get('ai_content_lifecycle.settings');
     $enabled_entity_types = $config->get('enabled_entity_types') ?: [];
     $enabled_bundles = $config->get('enabled_bundles') ?: [];
-    $bundle_prompts = $config->get('bundle_prompts') ?: [];
     $default_model = $config->get('default_model');
     $default_prompt = $config->get('default_prompt');
 
@@ -138,7 +137,6 @@ class ContentLifecycleBatchController extends ControllerBase {
   protected function buildContentTypesList(array $enabled_entity_types, array $enabled_bundles) {
     $content_types = [];
     $bundle_prompts = $this->configFactory->get('ai_content_lifecycle.settings')->get('bundle_prompts') ?: [];
-    $default_prompt = $this->configFactory->get('ai_content_lifecycle.settings')->get('default_prompt');
 
     foreach ($enabled_entity_types as $entity_type_id => $enabled) {
       if (!$enabled) {
