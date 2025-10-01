@@ -1,38 +1,88 @@
-## INTRODUCTION
+# OpenAI Content Lifecycle
 
-The AI Content Lifecycle module provides AI-powered content analysis to help content editors review and improve content quality on their Drupal site.
+This module provides AI-powered content analysis to help content editors identify and review outdated or inaccurate content on their Backdrop CMS site.
 
-The primary use cases for this module are:
+## Features
 
-- Automating content quality assessment using AI analysis
-- Creating a workflow for content editors to review AI-analyzed content
-- Tracking content review statuses (pending, analyzed, reviewed, updated, ignored)
+- **Automated Content Analysis**: Uses OpenAI's GPT models to analyze content based on configurable conditions
+- **Flexible Configuration**: Set up different analysis criteria for different content types
+- **Batch Processing**: Analyze all existing content at once or process content automatically as it's created
+- **Custom Prompts**: Configure exactly what conditions should trigger a review flag
 
-## REQUIREMENTS
+## Requirements
 
-- Drupal 10 or 11
-- An AI service for content analysis (implementation dependent)
+- Backdrop CMS 1.x
+- OpenAI module (with configured API key)
+- Key module (for secure API key storage)
 
-## INSTALLATION
+## Installation
 
-Install as you would normally install a contributed Drupal module.
-See: https://www.drupal.org/node/895232 for further information.
+1. Install and enable the OpenAI module and configure your API key
+2. Install and enable this module
+3. Visit Configuration > Content > OpenAI Content Lifecycle to configure
 
-## CONFIGURATION
+## Configuration
 
-1. Navigate to Configuration > AI  > AI Lifecycle settings
-2. Configure which content types and bundles should be analyzed
-3. Set up AI analysis parameters
-4. Use the batch process tool to analyze existing content
-5. New content will be automatically analyzed upon creation
+1. Navigate to **Configuration > Content > OpenAI Content Lifecycle**
+2. Select which OpenAI model to use (GPT-4o Mini is recommended for cost-effectiveness)
+3. Define your default analysis conditions (e.g., "mentions outdated information")
+4. Select which content types should be analyzed
+5. Optionally set specific conditions for each content type
+6. Save configuration
 
-## VIEWS INTEGRATION
+## Usage
 
-The module provides Views integration with relationships to connect content lifecycle entities to their referenced content entities (nodes, media, taxonomy terms, etc.).
+### Batch Analysis
 
-## MAINTAINERS
+After configuring the module, use the "Analyze Existing Content" button to process all published content of the selected types. The module will:
 
-Current maintainers for Drupal 10:
+1. Extract text content from each node
+2. Send it to OpenAI with your configured prompts
+3. Flag content that needs review based on the AI's analysis
+4. Store the analysis results for editor review
 
-- ayalon - https://www.drupal.org/u/ayalon
-- wouters_f - https://www.drupal.org/u/wouters_f
+### Viewing Results
+
+Analysis results are stored and can be accessed through:
+- State API: `state_get('openai_content_lifecycle_' . $nid)`
+- Integration with Flag module (if enabled) - creates "needs_review" flags
+
+## How It Works
+
+The module performs a two-step analysis:
+
+1. **Initial Check**: Asks AI if content meets the configured conditions for review (responds with XTRUE/XFALSE)
+2. **Detailed Analysis**: If flagged, requests a detailed explanation of why the content needs review
+
+This approach minimizes API costs while providing useful feedback to content editors.
+
+## Extending
+
+### Hooks
+
+**hook_openai_content_lifecycle_prepare_content($entity)**
+- Prepare custom content extraction for entities
+- Return a string of content to analyze
+
+**hook_openai_content_lifecycle_prompt_alter(&$prompt, $entity)**
+- Modify the prompt before sending to OpenAI
+- Add custom tokens or context
+
+**hook_openai_content_lifecycle_content_alter(&$content, $entity)**
+- Modify the extracted content array before analysis
+- Keys: 'title', 'content', 'updated', 'language'
+
+## Credits
+
+This module is a Backdrop CMS port of the Drupal "AI Content Lifecycle" module, adapted to work with the OpenAI module instead of the Drupal AI module.
+
+Original Drupal module maintainers:
+- ayalon
+- wouters_f
+
+Backdrop port: Adapted for Backdrop CMS with OpenAI module integration
+
+## License
+
+GPL-2.0-or-later
+

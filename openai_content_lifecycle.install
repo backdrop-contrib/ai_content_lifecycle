@@ -1,0 +1,204 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the openai_content_lifecycle module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function openai_content_lifecycle_schema() {
+  $schema = array();
+  
+  $schema['content_lifecycle'] = array(
+    'description' => 'Stores content lifecycle analysis data.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'Primary Key: Unique content lifecycle ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'label' => array(
+        'description' => 'The label of this content lifecycle.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'entity_type' => array(
+        'description' => 'The entity type of the referenced content.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'entity_bundle' => array(
+        'description' => 'The bundle of the referenced content.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'entity_id' => array(
+        'description' => 'The ID of the referenced content entity.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'ai_results' => array(
+        'description' => 'The AI analysis results text.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+      ),
+      'review_status' => array(
+        'description' => 'The review status of the content.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 'pending',
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid that created this lifecycle.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the lifecycle was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp when the lifecycle was most recently saved.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'entity_type' => array('entity_type'),
+      'entity_bundle' => array('entity_bundle'),
+      'entity_id' => array('entity_id'),
+      'review_status' => array('review_status'),
+      'uid' => array('uid'),
+      'created' => array('created'),
+      'changed' => array('changed'),
+      'entity_reference' => array('entity_type', 'entity_bundle', 'entity_id'),
+    ),
+  );
+  
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function openai_content_lifecycle_install() {
+  // Create default configuration.
+  $config = config('openai_content_lifecycle.settings');
+  
+  if ($config->isNew()) {
+    $config->set('default_model', 'gpt-4o-mini');
+    $config->set('temperature', 0.7);
+    $config->set('pre_prompt', _openai_content_lifecycle_default_system_prompt());
+    $config->set('default_prompt', _openai_content_lifecycle_default_prompt());
+    $config->set('enabled_types', array());
+    $config->set('bundle_prompts', array());
+    $config->save();
+  }
+  
+  backdrop_set_message(t('OpenAI Content Lifecycle has been installed. Configure it at <a href="!url">the settings page</a>.', array('!url' => url('admin/config/content/openai-content-lifecycle'))));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function openai_content_lifecycle_uninstall() {
+  // Remove all state variables.
+  db_delete('state')
+    ->condition('name', 'openai_content_lifecycle_%', 'LIKE')
+    ->execute();
+  
+  // Remove configuration.
+  config('openai_content_lifecycle.settings')->delete();
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function openai_content_lifecycle_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+
+  if ($phase == 'runtime') {
+    // Check if OpenAI module is enabled.
+    if (!module_exists('openai')) {
+      $requirements['openai_content_lifecycle_openai'] = array(
+        'title' => $t('OpenAI Content Lifecycle'),
+        'value' => $t('OpenAI module not found'),
+        'description' => $t('The OpenAI Content Lifecycle module requires the OpenAI module to be enabled.'),
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+    else {
+      // Check if API key is configured.
+      $api_key_config = config_get('openai.settings', 'api_key');
+      
+      if (empty($api_key_config)) {
+        $requirements['openai_content_lifecycle_api_key'] = array(
+          'title' => $t('OpenAI Content Lifecycle'),
+          'value' => $t('API key not configured'),
+          'description' => $t('Please configure your OpenAI API key in the <a href="!url">OpenAI settings</a>.', array('!url' => url('admin/config/openai/settings'))),
+          'severity' => REQUIREMENT_WARNING,
+        );
+      }
+      else {
+        $requirements['openai_content_lifecycle'] = array(
+          'title' => $t('OpenAI Content Lifecycle'),
+          'value' => $t('Configured'),
+          'severity' => REQUIREMENT_OK,
+        );
+      }
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Get default system prompt helper.
+ */
+function _openai_content_lifecycle_default_system_prompt() {
+  return "Format:
+------
+Respond XTRUE or XFALSE, nothing else, no pleasantries or other things.
+
+Variables:
+---------
+Today is [ai_content_lifecycle:date]
+
+INSTRUCTIONS
+------------
+return XTRUE when the content
+[conditions]
+
+Otherwise return XFALSE
+
+This is the content you have evaluate:
+----------------------------------------
+[context]";
+}
+
+/**
+ * Get default prompt helper.
+ */
+function _openai_content_lifecycle_default_prompt() {
+  return "- contains inconsistencies or contradictions\n- appears to be outdated and a human should check it";
+}

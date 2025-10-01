@@ -1,0 +1,75 @@
+/**
+ * @file
+ * Styles for OpenAI Content Lifecycle module.
+ */
+
+/* Summary bar */
+.lifecycle-summary {
+  padding: 10px;
+  margin-bottom: 20px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+/* Status colors */
+.status-pending {
+  color: #0074bd;
+  font-weight: bold;
+}
+
+.status-analyzed {
+  color: #e09600;
+  font-weight: bold;
+}
+
+.status-reviewed {
+  color: #77b259;
+}
+
+.status-updated {
+  color: #77b259;
+  font-weight: bold;
+}
+
+.status-ignored {
+  color: #888;
+}
+
+/* AI results display */
+.ai-results {
+  padding: 15px;
+  background: #fff9e6;
+  border-left: 4px solid #e09600;
+  margin: 10px 0;
+  line-height: 1.6;
+}
+
+/* Info table */
+.lifecycle-info {
+  margin: 10px 0;
+}
+
+.lifecycle-info td:first-child {
+  font-weight: bold;
+  width: 150px;
+  padding-right: 20px;
+}
+
+/* List table improvements */
+.content-lifecycle-list {
+  width: 100%;
+}
+
+.content-lifecycle-list td {
+  vertical-align: top;
+}
+
+.content-lifecycle-list .priority-low {
+  min-width: 200px;
+}
+
+/* Filters */
+#openai-content-lifecycle-filter-form {
+  margin-bottom: 20px;
+}
