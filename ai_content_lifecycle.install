@@ -1,0 +1,158 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the ai_content_lifecycle module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function ai_content_lifecycle_schema() {
+  $schema = [];
+
+  // During initial enable, the legacy module may already have created this
+  // table. Avoid a duplicate CREATE TABLE at install time, but continue to
+  // expose the schema after the module is enabled so Backdrop can derive
+  // field metadata for entity loading and admin UI rebuilds.
+  if (db_table_exists("content_lifecycle") && function_exists("backdrop_get_installed_schema_version") && backdrop_get_installed_schema_version("ai_content_lifecycle") == SCHEMA_UNINSTALLED) {
+    return $schema;
+  }
+
+  $schema['content_lifecycle'] = [
+    'description' => 'Stores content lifecycle analysis data.',
+    'fields' => [
+      'id' => [
+        'description' => 'Primary Key: Unique content lifecycle ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'label' => [
+        'description' => 'The label of this content lifecycle.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ],
+      'entity_type' => [
+        'description' => 'The entity type of the referenced content.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ],
+      'entity_bundle' => [
+        'description' => 'The bundle of the referenced content.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ],
+      'entity_id' => [
+        'description' => 'The ID of the referenced content entity.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'ai_results' => [
+        'description' => 'The AI analysis results text.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+      ],
+      'review_status' => [
+        'description' => 'The review status of the content.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 'pending',
+      ],
+      'uid' => [
+        'description' => 'The {users}.uid that created this lifecycle.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'created' => [
+        'description' => 'The Unix timestamp when the lifecycle was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'changed' => [
+        'description' => 'The Unix timestamp when the lifecycle was most recently saved.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'entity_type' => ['entity_type'],
+      'entity_bundle' => ['entity_bundle'],
+      'entity_id' => ['entity_id'],
+      'review_status' => ['review_status'],
+      'uid' => ['uid'],
+      'created' => ['created'],
+      'changed' => ['changed'],
+      'entity_reference' => ['entity_type', 'entity_bundle', 'entity_id'],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function ai_content_lifecycle_install() {
+  if (!module_load_install('ai_upgrade')) { return []; }
+  ai_upgrade_module_install('ai_content_lifecycle');
+
+  $config = config('ai_content_lifecycle.settings');
+
+  if ($config->isNew()) {
+    $config->set('default_model', 'gpt-4o-mini');
+    $config->set('temperature', 0.7);
+    $config->set('pre_prompt', _ai_content_lifecycle_default_system_prompt());
+    $config->set('default_prompt', _ai_content_lifecycle_default_prompt());
+    $config->set('enabled_types', []);
+    $config->set('bundle_prompts', []);
+    $config->save();
+  }
+
+  backdrop_set_message(t('AI Content Lifecycle has been installed. Configure it at <a href="!url">the settings page</a>.', ['!url' => url('admin/config/ai/ai-content-lifecycle')]));
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function ai_content_lifecycle_requirements($phase) {
+  if (!module_load_install('ai_upgrade')) { return []; }
+  return ai_upgrade_module_requirements($phase, 'ai_content_lifecycle');
+}
+
+/**
+ * Migrate configuration from openai_content_lifecycle to ai_content_lifecycle.
+ */
+function ai_content_lifecycle_update_1000() {
+  // Migrate config.
+  $old = config('openai_content_lifecycle.settings');
+  $new = config('ai_content_lifecycle.settings');
+  if ($old->get()) {
+    $new->setData($old->get());
+    $new->set('_config_name', 'ai_content_lifecycle.settings');
+    $new->save();
+    $old->delete();
+  }
+
+  // Disable legacy module.
+  if (module_exists('openai_content_lifecycle')) {
+    module_disable(['openai_content_lifecycle']);
+  }
+
+  return t('Migrated legacy Content Lifecycle configuration to AI Content Lifecycle.');
+}

@@ -1,0 +1,399 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for ai_content_lifecycle module.
+ */
+
+/**
+ * Check if the content_lifecycle table exists.
+ * Returns gracefully if table is missing (module may be in transition).
+ */
+function _ai_content_lifecycle_table_exists() {
+  return db_table_exists('content_lifecycle');
+}
+
+
+/**
+ * Implements hook_autoload_info().
+ */
+function ai_content_lifecycle_autoload_info() {
+  return [
+    'AIContentLifecycleAnalyzer' => 'includes/AIContentLifecycleAnalyzer.inc',
+    'AIContentLifecycle' => 'includes/AIContentLifecycle.inc',
+  ];
+}
+
+/**
+ * Implements hook_entity_info().
+ */
+function ai_content_lifecycle_entity_info() {
+  $info = [];
+
+  $info['content_lifecycle'] = [
+    'label' => t('Content Lifecycle'),
+    'plural label' => t('Content Lifecycles'),
+    'controller class' => 'EntityPlusController',
+    'entity class' => 'AIContentLifecycle',
+    'base table' => 'content_lifecycle',
+    'fieldable' => FALSE,
+    'entity keys' => [
+      'id' => 'id',
+      'label' => 'label',
+    ],
+    'bundles' => [
+      'content_lifecycle' => [
+        'label' => t('Content Lifecycle'),
+        'admin' => [
+          'path' => 'admin/content/ai-content-lifecycle',
+          'access arguments' => ['administer ai content lifecycle'],
+        ],
+      ],
+    ],
+    'view modes' => [
+      'full' => [
+        'label' => t('Full'),
+        'custom settings' => FALSE,
+      ],
+    ],
+    'uri callback' => 'entity_class_uri',
+    'access callback' => 'ai_content_lifecycle_access',
+    'module' => 'ai_content_lifecycle',
+  ];
+
+  return $info;
+}
+
+/**
+ * Access callback for content lifecycle entities.
+ */
+function ai_content_lifecycle_access($op, $entity = NULL, $account = NULL) {
+  if (user_access('administer ai content lifecycle', $account)) {
+    return TRUE;
+  }
+
+  switch ($op) {
+    case 'view':
+      return user_access('view content lifecycle data', $account);
+    case 'edit':
+    case 'update':
+      return user_access('edit content lifecycle data', $account);
+    case 'create':
+    case 'delete':
+      return user_access('administer ai content lifecycle', $account);
+  }
+
+  return FALSE;
+}
+
+/**
+ * Get default system prompt helper.
+ */
+function _ai_content_lifecycle_default_system_prompt() {
+  return "Format:
+------
+Respond XTRUE or XFALSE, nothing else, no pleasantries or other things.
+
+Variables:
+---------
+Today is [ai_content_lifecycle:date]
+
+INSTRUCTIONS
+------------
+return XTRUE when the content
+[conditions]
+
+Otherwise return XFALSE
+
+This is the content you have evaluate:
+----------------------------------------
+[context]";
+}
+
+/**
+ * Get default prompt helper.
+ */
+function _ai_content_lifecycle_default_prompt() {
+  return "- contains inconsistencies or contradictions\n- appears to be outdated and a human should check it";
+}
+
+/**
+ * Implements hook_config_info().
+ */
+function ai_content_lifecycle_config_info() {
+  $prefixes['ai_content_lifecycle.settings'] = [
+    'label' => t('AI Content Lifecycle settings'),
+    'group' => t('AI'),
+  ];
+  return $prefixes;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function ai_content_lifecycle_permission() {
+  return [
+    'administer ai content lifecycle' => [
+      'title' => t('Administer AI Content Lifecycle'),
+      'description' => t('Configure AI Content Lifecycle settings and manage content analysis.'),
+    ],
+    'view content lifecycle data' => [
+      'title' => t('View content lifecycle data'),
+      'description' => t('View AI analysis results for content.'),
+    ],
+    'edit content lifecycle data' => [
+      'title' => t('Edit content lifecycle data'),
+      'description' => t('Edit AI analysis results and mark content as reviewed.'),
+    ],
+  ];
+}
+
+/**
+ * Implements hook_menu().
+ */
+function ai_content_lifecycle_menu() {
+  $items = [];
+
+  // Configuration page.
+  $items['admin/config/ai/ai-content-lifecycle'] = [
+    'title' => 'AI Content Lifecycle',
+    'description' => 'Configure content analysis settings for AI Content Lifecycle.',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => ['ai_content_lifecycle_settings_form'],
+    'access arguments' => ['administer ai content lifecycle'],
+    'file' => 'ai_content_lifecycle.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  ];
+
+  // Batch analyze page.
+  $items['admin/config/ai/ai-content-lifecycle/batch'] = [
+    'title' => 'Batch analyze content',
+    'description' => 'Analyze existing content in batches.',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => ['ai_content_lifecycle_batch_form'],
+    'access arguments' => ['administer ai content lifecycle'],
+    'file' => 'ai_content_lifecycle.admin.inc',
+    'type' => MENU_CALLBACK,
+  ];
+
+  // Main content listing page - shows all flagged content.
+  $items['admin/content/ai-content-lifecycle'] = [
+    'title' => 'Content Lifecycle',
+    'description' => 'View content flagged by AI for review.',
+    'page callback' => 'ai_content_lifecycle_list_page',
+    'access arguments' => ['view content lifecycle data'],
+    'file' => 'ai_content_lifecycle.pages.inc',
+    'type' => MENU_NORMAL_ITEM,
+  ];
+
+  // View individual lifecycle entity.
+  $items['admin/content/ai-content-lifecycle/%'] = [
+    'title' => 'View Content Lifecycle',
+    'page callback' => 'ai_content_lifecycle_view_page',
+    'page arguments' => [3],
+    'access arguments' => ['view content lifecycle data'],
+    'file' => 'ai_content_lifecycle.pages.inc',
+    'type' => MENU_CALLBACK,
+  ];
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function ai_content_lifecycle_theme($existing, $type, $theme, $path) {
+  return [
+    'ai_content_lifecycle_confirmation' => [
+      'variables' => ['confirmation' => NULL],
+      'template' => 'ai-content-lifecycle-confirmation',
+      'path' => backdrop_get_path('module', 'ai_content_lifecycle') . '/templates',
+    ],
+  ];
+}
+
+/**
+ * Preprocess function for ai_content_lifecycle_confirmation template.
+ */
+function template_preprocess_ai_content_lifecycle_confirmation(&$variables) {
+  // Add necessary classes for styling.
+  $variables['classes'] = ['ai-content-lifecycle-confirmation'];
+
+  // Add CSS.
+  backdrop_add_css(backdrop_get_path('module', 'ai_content_lifecycle') . '/css/ai_content_lifecycle.css');
+}
+
+/**
+ * Load a AIContentLifecycle entity by referenced entity.
+ *
+ * Accepts either an entity object or an entity type + id pair.
+ * Returns a single AIContentLifecycle entity object or NULL if none found.
+ *
+ * @param mixed $entity_or_type
+ *   Either an entity object (e.g., $node) or a string entity type (e.g., 'node').
+ * @param int|null $entity_id
+ *   If the first arg is a string entity type, pass the entity ID here.
+ *
+ * @return AIContentLifecycle|null
+ *   The first matching AIContentLifecycle entity, or NULL if none found.
+ */
+function ai_content_lifecycle_load_by_entity($entity_or_type, $entity_id = NULL) {
+  // Normalize to an entity object.
+  if (is_object($entity_or_type)) {
+    $entity = $entity_or_type;
+  }
+  else {
+    if (empty($entity_or_type) || empty($entity_id)) {
+      return NULL;
+    }
+    $loaded = entity_load($entity_or_type, [$entity_id]);
+    if (empty($loaded) || empty($loaded[$entity_id])) {
+      return NULL;
+    }
+    $entity = $loaded[$entity_id];
+  }
+
+  // Use the entity class helper if available to find lifecycle entities.
+  if (class_exists('AIContentLifecycle') && method_exists('AIContentLifecycle', 'findForEntity')) {
+    $found = AIContentLifecycle::findForEntity($entity);
+    if (!empty($found)) {
+      return reset($found);
+    }
+  }
+
+  // Fallback: query the content_lifecycle table directly.
+  // Ensure table exists (may have been deleted if module was uninstalled)
+  if (!_ai_content_lifecycle_table_exists()) {
+    return NULL;
+  }
+
+  try {
+    $entity_type = $entity->entityType();
+    list($id) = entity_extract_ids($entity_type, $entity);
+    if (empty($id)) { return NULL; }
+
+    $query = db_select('content_lifecycle', 'c')
+      ->fields('c')
+      ->condition('entity_type', $entity_type)
+      ->condition('entity_id', $id)
+      ->range(0, 1)
+      ->execute();
+
+    $row = $query->fetchObject();
+    if ($row && !empty($row->id)) {
+      $entities = entity_load('content_lifecycle', [$row->id]);
+      return !empty($entities[$row->id]) ? $entities[$row->id] : NULL;
+    }
+  }
+  catch (\Exception $e) {
+    watchdog('ai_content_lifecycle', 'Error loading AIContentLifecycle for entity: @msg', ['@msg' => $e->getMessage()], WATCHDOG_WARNING);
+  }
+
+  return NULL;
+}
+
+/**
+ * Implements hook_queue_info().
+ */
+function ai_content_lifecycle_queue_info() {
+  return [
+    'ai_content_lifecycle_analysis' => [
+      'title' => t('AI Content Lifecycle analysis queue'),
+      'worker callback' => 'ai_content_lifecycle_queue_worker',
+      'cron' => ['time' => 60],
+    ],
+  ];
+}
+
+/**
+ * Queue worker: analyze one node.
+ */
+function ai_content_lifecycle_queue_worker($data) {
+  $nid = isset($data['nid']) ? (int) $data['nid'] : 0;
+  if (!$nid) {
+    return;
+  }
+  $node = node_load($nid);
+  if (!$node || empty($node->status)) {
+    return;
+  }
+  try {
+    $analyzer = new AIContentLifecycleAnalyzer();
+    $analyzer->updateContentLifecycleWithAnalysis($node, NULL);
+  }
+  catch (\Exception $e) {
+    watchdog('ai_content_lifecycle', 'Queue worker error for nid @nid: @msg', [
+      '@nid' => $nid,
+      '@msg' => $e->getMessage(),
+    ], WATCHDOG_WARNING);
+    throw $e;
+  }
+}
+
+/**
+ * Queue a node for background analysis if its type is enabled.
+ */
+function _ai_content_lifecycle_maybe_queue($node) {
+  if (empty($node->status)) {
+    return;
+  }
+  $config = config('ai_content_lifecycle.settings');
+  if (empty($config->get('auto_upsert_on_save'))) {
+    return;
+  }
+  $enabled_types = $config->get('enabled_types') ?: [];
+  if (empty($enabled_types[$node->type])) {
+    return;
+  }
+  $queue = BackdropQueue::get('ai_content_lifecycle_analysis');
+  $queue->createItem(['nid' => (int) $node->nid]);
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function ai_content_lifecycle_node_insert($node) {
+  _ai_content_lifecycle_maybe_queue($node);
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function ai_content_lifecycle_node_update($node) {
+  _ai_content_lifecycle_maybe_queue($node);
+}
+
+/**
+ * Implements hook_cron().
+ */
+function ai_content_lifecycle_cron() {
+  $config = config('ai_content_lifecycle.settings');
+  $batch_size = (int) ($config->get('cron_batch_size') ?: 10);
+  $enabled_types = $config->get('enabled_types') ?: [];
+  if (empty($enabled_types)) {
+    return;
+  }
+
+  $queue = BackdropQueue::get('ai_content_lifecycle_analysis');
+  $processed = 0;
+  while ($processed < $batch_size) {
+    $item = $queue->claimItem();
+    if (!$item) {
+      break;
+    }
+    try {
+      ai_content_lifecycle_queue_worker($item->data);
+      $queue->deleteItem($item);
+    }
+    catch (\Exception $e) {
+      $queue->releaseItem($item);
+    }
+    $processed++;
+  }
+
+  if ($processed) {
+    watchdog('ai_content_lifecycle', 'Cron processed @count node(s) from analysis queue.', [
+      '@count' => $processed,
+    ]);
+  }
+}

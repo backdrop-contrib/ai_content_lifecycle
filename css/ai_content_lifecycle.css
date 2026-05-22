@@ -1,6 +1,6 @@
 /**
  * @file
- * Styles for OpenAI Content Lifecycle module.
+ * Styles for AI Content Lifecycle module.
  */
 
 /* Summary bar */
@@ -70,6 +70,6 @@
 }
 
 /* Filters */
-#openai-content-lifecycle-filter-form {
+#ai-content-lifecycle-filter-form {
   margin-bottom: 20px;
 }

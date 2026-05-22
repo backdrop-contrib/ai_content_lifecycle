@@ -1,0 +1,12 @@
+name = AI Content Lifecycle
+description = Automated content lifecycle management with AI-powered analysis.
+backdrop = 1.x
+type = module
+package = AI
+dependencies[] = ai
+configure = admin/config/ai/ai-content-lifecycle
+
+dependencies[] = ai
+dependencies[] = entity_plus
+dependencies[] = entity_ui
+dependencies[] = views

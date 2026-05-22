@@ -8,7 +8,7 @@
 /**
  * The class used for content lifecycle entities.
  */
-class ContentLifecycle extends Entity {
+class AIContentLifecycle extends Entity {
 
   /**
    * The content lifecycle ID.
@@ -81,9 +81,9 @@ class ContentLifecycle extends Entity {
   public $changed;
 
   /**
-   * Constructor for ContentLifecycle entity.
+   * Constructor for AIContentLifecycle entity.
    */
-  public function __construct(array $values = array()) {
+  public function __construct(array $values = []) {
     parent::__construct($values, 'content_lifecycle');
 
     // Set defaults.
@@ -108,7 +108,7 @@ class ContentLifecycle extends Entity {
    * @param object $entity
    *   The entity to reference.
    *
-   * @return ContentLifecycle
+   * @return AIContentLifecycle
    *   The current lifecycle entity for method chaining.
    */
   public function setReferencedEntity($entity) {
@@ -143,7 +143,7 @@ class ContentLifecycle extends Entity {
       return NULL;
     }
 
-    $entities = entity_load($this->entity_type, array($this->entity_id));
+    $entities = entity_load($this->entity_type, [$this->entity_id]);
     return !empty($entities[$this->entity_id]) ? $entities[$this->entity_id] : NULL;
   }
 
@@ -154,7 +154,7 @@ class ContentLifecycle extends Entity {
    *   The entity to find lifecycles for.
    *
    * @return array
-   *   Array of ContentLifecycle entities.
+   *   Array of AIContentLifecycle entities.
    */
   public static function findForEntity($entity) {
     $entity_type = $entity->entityType();
@@ -175,7 +175,7 @@ class ContentLifecycle extends Entity {
       return entity_load('content_lifecycle', array_keys($result['content_lifecycle']));
     }
 
-    return array();
+    return [];
   }
 
   /**
@@ -218,6 +218,6 @@ class ContentLifecycle extends Entity {
    * Overrides Entity::defaultUri().
    */
   protected function defaultUri() {
-    return array('path' => 'content-lifecycle/' . $this->id);
+    return ['path' => 'content-lifecycle/' . $this->id];
   }
 }

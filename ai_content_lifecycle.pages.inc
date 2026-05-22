@@ -2,21 +2,21 @@
 
 /**
  * @file
- * Page callbacks for OpenAI Content Lifecycle module.
+ * Page callbacks for AI Content Lifecycle module.
  */
 
 /**
  * Page callback: List all content lifecycle entities.
  */
-function openai_content_lifecycle_list_page() {
-  $header = array(
-    array('data' => t('Content'), 'field' => 'label'),
-    array('data' => t('Type'), 'field' => 'entity_bundle'),
-    array('data' => t('Status'), 'field' => 'review_status'),
-    array('data' => t('AI Analysis'), 'class' => array('priority-low')),
-    array('data' => t('Created'), 'field' => 'created', 'sort' => 'desc'),
-    array('data' => t('Operations')),
-  );
+function ai_content_lifecycle_list_page() {
+  $header = [
+    ['data' => t('Content'), 'field' => 'label'],
+    ['data' => t('Type'), 'field' => 'entity_bundle'],
+    ['data' => t('Status'), 'field' => 'review_status'],
+    ['data' => t('AI Analysis'), 'class' => ['priority-low']],
+    ['data' => t('Created'), 'field' => 'created', 'sort' => 'desc'],
+    ['data' => t('Operations')],
+  ];
 
   // Build the query.
   $query = db_select('content_lifecycle', 'cl')
@@ -35,11 +35,11 @@ function openai_content_lifecycle_list_page() {
   $result = $query->execute();
 
   // Build rows.
-  $rows = array();
+  $rows = [];
   foreach ($result as $lifecycle) {
     $entity = NULL;
     if ($lifecycle->entity_type && $lifecycle->entity_id) {
-      $entities = entity_load($lifecycle->entity_type, array($lifecycle->entity_id));
+      $entities = entity_load($lifecycle->entity_type, [$lifecycle->entity_id]);
       $entity = !empty($entities) ? reset($entities) : NULL;
     }
 
@@ -71,51 +71,52 @@ function openai_content_lifecycle_list_page() {
     $status_class = 'status-' . str_replace('_', '-', $lifecycle->review_status);
     $status = '<span class="' . $status_class . '">' . check_plain($lifecycle->review_status) . '</span>';
 
-    $rows[] = array(
-      'data' => array(
+    $rows[] = [
+      'data' => [
         $content_link,
         check_plain($bundle_label),
-        array('data' => $status, 'class' => array($status_class)),
+        ['data' => $status, 'class' => [$status_class]],
         $analysis,
         format_date($lifecycle->created, 'short'),
-        l(t('View'), 'admin/content/content-lifecycle/' . $lifecycle->id) . ' | ' .
+        l(t('View'), 'admin/content/ai-content-lifecycle/' . $lifecycle->id) .
+        ' | ' .
         ($entity ? l(t('Edit content'), $uri['path'] . '/edit') : ''),
-      ),
-    );
+      ],
+    ];
   }
 
   // Build the output.
-  $build = array();
+  $build = [];
 
   // Add filter form.
-  $build['filters'] = backdrop_get_form('openai_content_lifecycle_filter_form');
+  $build['filters'] = backdrop_get_form('ai_content_lifecycle_filter_form');
 
   // Add summary.
-  $summary = _openai_content_lifecycle_get_summary();
-  $build['summary'] = array(
+  $summary = _ai_content_lifecycle_get_summary();
+  $build['summary'] = [
     '#markup' => '<div class="lifecycle-summary">' . $summary . '</div>',
-  );
+  ];
 
   if (empty($rows)) {
-    $build['empty'] = array(
-      '#markup' => '<p>' . t('No content has been flagged for review yet. Run the <a href="@batch">batch analysis</a> to analyze existing content.', array('@batch' => url('admin/config/content/openai-content-lifecycle/batch'))) . '</p>',
-    );
+    $build['empty'] = [
+      '#markup' => '<p>' . t('No content has been flagged for review yet. Run the <a href="@batch">batch analysis</a> to analyze existing content.', ['@batch' => url('admin/config/ai/ai-content-lifecycle/batch')]) . '</p>',
+    ];
   }
   else {
-    $build['table'] = array(
+    $build['table'] = [
       '#theme' => 'table',
       '#header' => $header,
       '#rows' => $rows,
-      '#attributes' => array('class' => array('content-lifecycle-list')),
-    );
+      '#attributes' => ['class' => ['content-lifecycle-list']],
+    ];
 
-    $build['pager'] = array(
+    $build['pager'] = [
       '#theme' => 'pager',
-    );
+    ];
   }
 
   // Add CSS.
-  backdrop_add_css(backdrop_get_path('module', 'openai_content_lifecycle') . '/css/openai_content_lifecycle.css');
+  backdrop_add_css(backdrop_get_path('module', 'ai_content_lifecycle') . '/css/ai_content_lifecycle.css');
 
   return $build;
 }
@@ -123,43 +124,44 @@ function openai_content_lifecycle_list_page() {
 /**
  * Filter form for content lifecycle list.
  */
-function openai_content_lifecycle_filter_form($form, &$form_state) {
-  $form['filters'] = array(
+function ai_content_lifecycle_filter_form($form, &$form_state) {
+  $form['filters'] = [
     '#type' => 'fieldset',
     '#title' => t('Filter'),
     '#collapsible' => TRUE,
     '#collapsed' => empty($_GET['status']),
-  );
+  ];
 
-  $form['filters']['status'] = array(
+  $form['filters']['status'] = [
     '#type' => 'select',
     '#title' => t('Review Status'),
-    '#options' => array(
+    '#options' => [
       '' => t('- All -'),
       'pending' => t('Pending'),
+      'ok' => t('OK'),
       'analyzed' => t('Analyzed'),
       'reviewed' => t('Reviewed'),
       'updated' => t('Updated'),
       'ignored' => t('Ignored'),
-    ),
+    ],
     '#default_value' => isset($_GET['status']) ? $_GET['status'] : '',
-  );
+  ];
 
-  $form['filters']['actions'] = array(
+  $form['filters']['actions'] = [
     '#type' => 'actions',
-  );
+  ];
 
-  $form['filters']['actions']['submit'] = array(
+  $form['filters']['actions']['submit'] = [
     '#type' => 'submit',
     '#value' => t('Filter'),
-  );
+  ];
 
   if (!empty($_GET['status'])) {
-    $form['filters']['actions']['reset'] = array(
+    $form['filters']['actions']['reset'] = [
       '#type' => 'submit',
       '#value' => t('Reset'),
-      '#submit' => array('openai_content_lifecycle_filter_form_reset'),
-    );
+      '#submit' => ['ai_content_lifecycle_filter_form_reset'],
+    ];
   }
 
   return $form;
@@ -168,47 +170,48 @@ function openai_content_lifecycle_filter_form($form, &$form_state) {
 /**
  * Submit handler for filter form.
  */
-function openai_content_lifecycle_filter_form_submit($form, &$form_state) {
+function ai_content_lifecycle_filter_form_submit($form, &$form_state) {
   $status = $form_state['values']['status'];
 
   if (!empty($status)) {
-    $form_state['redirect'] = array(
-      'admin/content/content-lifecycle',
-      array('query' => array('status' => $status)),
-    );
+    $form_state['redirect'] = [
+      'admin/content/ai-content-lifecycle',
+      ['query' => ['status' => $status]],
+    ];
   }
   else {
-    $form_state['redirect'] = 'admin/content/content-lifecycle';
+    $form_state['redirect'] = 'admin/content/ai-content-lifecycle';
   }
 }
 
 /**
  * Reset handler for filter form.
  */
-function openai_content_lifecycle_filter_form_reset($form, &$form_state) {
-  $form_state['redirect'] = 'admin/content/content-lifecycle';
+function ai_content_lifecycle_filter_form_reset($form, &$form_state) {
+  $form_state['redirect'] = 'admin/content/ai-content-lifecycle';
 }
 
 /**
  * Get summary statistics.
  */
-function _openai_content_lifecycle_get_summary() {
-  $statuses = array('pending', 'analyzed', 'reviewed', 'updated', 'ignored');
-  $counts = array();
+function _ai_content_lifecycle_get_summary() {
+  $statuses = ['pending', 'ok', 'analyzed', 'reviewed', 'updated', 'ignored'];
+  $counts = [];
   $total = 0;
 
   foreach ($statuses as $status) {
     $count = db_query("SELECT COUNT(*) FROM {content_lifecycle} WHERE review_status = :status",
-      array(':status' => $status))->fetchField();
+      [':status' => $status])->fetchField();
     $counts[$status] = $count;
     $total += $count;
   }
 
-  $items = array();
-  $items[] = '<strong>' . t('Total: @count', array('@count' => $total)) . '</strong>';
+  $items = [];
+  $items[] = '<strong>' . t('Total: @count', ['@count' => $total]) . '</strong>';
   foreach ($counts as $status => $count) {
     if ($count > 0) {
-      $items[] = t('@status: @count', array('@status' => ucfirst($status), '@count' => $count));
+      $label = ucfirst($status) . ': ' . $count;
+      $items[] = l($label, 'admin/content/ai-content-lifecycle', ['query' => ['status' => $status]]);
     }
   }
 
@@ -218,12 +221,11 @@ function _openai_content_lifecycle_get_summary() {
 /**
  * Page callback: View a single content lifecycle entity.
  */
-function openai_content_lifecycle_view_page($lifecycle_id) {
-  $lifecycle = entity_load('content_lifecycle', array($lifecycle_id));
+function ai_content_lifecycle_view_page($lifecycle_id) {
+  $lifecycle = entity_load('content_lifecycle', [$lifecycle_id]);
 
   if (empty($lifecycle)) {
-    backdrop_not_found();
-    return;
+    return backdrop_not_found();
   }
 
   $lifecycle = reset($lifecycle);
@@ -231,11 +233,11 @@ function openai_content_lifecycle_view_page($lifecycle_id) {
   // Load the referenced entity.
   $entity = NULL;
   if ($lifecycle->entity_type && $lifecycle->entity_id) {
-    $entities = entity_load($lifecycle->entity_type, array($lifecycle->entity_id));
+    $entities = entity_load($lifecycle->entity_type, [$lifecycle->entity_id]);
     $entity = !empty($entities) ? reset($entities) : NULL;
   }
 
-  $build = array();
+  $build = [];
 
   // Title.
   backdrop_set_title($lifecycle->label);
@@ -246,10 +248,10 @@ function openai_content_lifecycle_view_page($lifecycle_id) {
   }
 
   // Basic info.
-  $build['info'] = array(
+  $build['info'] = [
     '#type' => 'fieldset',
     '#title' => t('Lifecycle Information'),
-  );
+  ];
 
   // Get human-readable bundle name.
   $bundle_label = $lifecycle->entity_bundle;
@@ -260,46 +262,46 @@ function openai_content_lifecycle_view_page($lifecycle_id) {
     }
   }
 
-  $rows = array();
-  $rows[] = array(t('Status'), '<strong>' . check_plain($lifecycle->review_status) . '</strong>');
-  $rows[] = array(t('Content Type'), check_plain($bundle_label));
+  $rows = [];
+  $rows[] = [t('Status'), '<strong>' . l(check_plain($lifecycle->review_status), 'admin/content/ai-content-lifecycle', ['query' => ['status' => $lifecycle->review_status]]) . '</strong>'];
+  $rows[] = [t('Content Type'), check_plain($bundle_label)];
 
   if ($entity) {
     $uri = entity_uri($lifecycle->entity_type, $entity);
-    $rows[] = array(t('Content'), l($lifecycle->label, $uri['path']));
+    $rows[] = [t('Content'), l($lifecycle->label, $uri['path'])];
   }
   else {
-    $rows[] = array(t('Content'), check_plain($lifecycle->label) . ' ' . t('(deleted)'));
+    $rows[] = [t('Content'), check_plain($lifecycle->label) . ' ' . t('(deleted]')];
   }
 
-  $rows[] = array(t('Created'), format_date($lifecycle->created, 'long'));
-  $rows[] = array(t('Last Updated'), format_date($lifecycle->changed, 'long'));
+  $rows[] = [t('Created'), format_date($lifecycle->created, 'long')];
+  $rows[] = [t('Last Updated'), format_date($lifecycle->changed, 'long')];
 
-  $build['info']['table'] = array(
+  $build['info']['table'] = [
     '#theme' => 'table',
     '#rows' => $rows,
-    '#attributes' => array('class' => array('lifecycle-info')),
-  );
+    '#attributes' => ['class' => ['lifecycle-info']],
+  ];
 
   // AI Analysis results.
   if (!empty($lifecycle->ai_results)) {
-    $build['analysis'] = array(
+    $build['analysis'] = [
       '#type' => 'fieldset',
       '#title' => t('AI Analysis'),
-    );
+    ];
 
-    $build['analysis']['results'] = array(
+    $build['analysis']['results'] = [
       '#markup' => '<div class="ai-results">' . nl2br(check_plain($lifecycle->ai_results)) . '</div>',
-    );
+    ];
   }
 
   // Actions.
-  $build['actions'] = array(
+  $build['actions'] = [
     '#type' => 'fieldset',
     '#title' => t('Actions'),
-  );
+  ];
 
-  $links = array();
+  $links = [];
 
   if ($entity) {
     $uri = entity_uri($lifecycle->entity_type, $entity);
@@ -307,14 +309,14 @@ function openai_content_lifecycle_view_page($lifecycle_id) {
     $links[] = l(t('Edit content'), $uri['path'] . '/edit');
   }
 
-  $links[] = l(t('Back to list'), 'admin/content/content-lifecycle');
+  $links[] = l(t('Back to list'), 'admin/content/ai-content-lifecycle');
 
-  $build['actions']['links'] = array(
+  $build['actions']['links'] = [
     '#markup' => implode(' | ', $links),
-  );
+  ];
 
   // Status update form.
-  $build['status_form'] = backdrop_get_form('openai_content_lifecycle_status_form', $lifecycle);
+  $build['status_form'] = backdrop_get_form('ai_content_lifecycle_status_form', $lifecycle);
 
   return $build;
 }
@@ -322,38 +324,39 @@ function openai_content_lifecycle_view_page($lifecycle_id) {
 /**
  * Form to update lifecycle status.
  */
-function openai_content_lifecycle_status_form($form, &$form_state, $lifecycle) {
+function ai_content_lifecycle_status_form($form, &$form_state, $lifecycle) {
   $form['#lifecycle'] = $lifecycle;
 
-  $form['status'] = array(
+  $form['status'] = [
     '#type' => 'fieldset',
     '#title' => t('Update Status'),
     '#collapsible' => TRUE,
     '#collapsed' => FALSE,
-  );
+  ];
 
-  $form['status']['review_status'] = array(
+  $form['status']['review_status'] = [
     '#type' => 'select',
     '#title' => t('Review Status'),
-    '#options' => array(
+    '#options' => [
       'pending' => t('Pending'),
+      'ok' => t('OK'),
       'analyzed' => t('Analyzed'),
       'reviewed' => t('Reviewed'),
       'updated' => t('Updated'),
       'ignored' => t('Ignored'),
-    ),
+    ],
     '#default_value' => $lifecycle->review_status,
     '#required' => TRUE,
-  );
+  ];
 
-  $form['status']['actions'] = array(
+  $form['status']['actions'] = [
     '#type' => 'actions',
-  );
+  ];
 
-  $form['status']['actions']['submit'] = array(
+  $form['status']['actions']['submit'] = [
     '#type' => 'submit',
     '#value' => t('Update Status'),
-  );
+  ];
 
   return $form;
 }
@@ -361,11 +364,11 @@ function openai_content_lifecycle_status_form($form, &$form_state, $lifecycle) {
 /**
  * Submit handler for status update form.
  */
-function openai_content_lifecycle_status_form_submit($form, &$form_state) {
+function ai_content_lifecycle_status_form_submit($form, &$form_state) {
   $lifecycle = $form['#lifecycle'];
   $lifecycle->review_status = $form_state['values']['review_status'];
   $lifecycle->save();
 
-  backdrop_set_message(t('Status updated to @status.', array('@status' => $form_state['values']['review_status'])));
-  $form_state['redirect'] = 'admin/content/content-lifecycle';
+  backdrop_set_message(t('Status updated to @status.', ['@status' => $form_state['values']['review_status']]));
+  $form_state['redirect'] = 'admin/content/ai-content-lifecycle';
 }
