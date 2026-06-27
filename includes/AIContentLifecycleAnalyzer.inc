@@ -70,8 +70,10 @@ class AIContentLifecycleAnalyzer {
    * @param object $entity
    *   The entity to analyze.
    *
-   * @return string|null
-   *   The AI analysis results, or NULL if content doesn't need review.
+   * @return string|null|false
+   *   The AI analysis explanation when content needs review, NULL when the
+   *   content passed the check, or FALSE when analysis failed (API error or
+   *   empty model response) — callers must not record FALSE as "ok".
    */
   public function analyzeContent($entity) {
     $config = config('ai_content_lifecycle.settings');
@@ -119,7 +121,7 @@ class AIContentLifecycleAnalyzer {
 
     $messages[] = [
       'role' => 'system',
-      'content' => 'You are an agent that responds with only XTRUE or XFALSE. You evaluate CONTEXT based on the INSTRUCTION the user provides. You return (XTRUE] if the INSTRUCTION provided indicate that the content should be updated or (XFALSE] if not.',
+      'content' => 'You are an agent that responds with only XTRUE or XFALSE. You evaluate CONTEXT based on the INSTRUCTION the user provides. You return (XTRUE) if the INSTRUCTION provided indicate that the content should be updated or (XFALSE) if not.',
     ];
 
     $messages[] = [
@@ -138,11 +140,12 @@ class AIContentLifecycleAnalyzer {
       // Call the centralized AI API helper.
       $response = ai_chat($this->model, $messages, $temperature, 500, FALSE);
 
-      if (empty($response)) {
-        return NULL;
-      }
-
       $result = is_string($response) ? $response : (isset($response->content) ? $response->content : '');
+
+      if (trim($result) === '') {
+        // No verdict — distinct from a clean XFALSE pass.
+        return FALSE;
+      }
 
       if (stripos($result, 'XTRUE') !== FALSE) {
         // Content needs review, get detailed explanation.
@@ -153,7 +156,7 @@ Today is [ai_content_lifecycle:date]
 
 INSTRUCTION
 -----------
-The below content was marked for review (context].
+The below content was marked for review (context).
 The content should be marked when
 [conditions]
 
@@ -187,15 +190,24 @@ CONTEXT
           'content' => $subPrompt,
         ];
 
-        $response2 = ai_chat($this->model, $messages2, $temperature, 500, FALSE);
-        return is_string($response2) ? $response2 : (isset($response2->content) ? $response2->content : '');
+        try {
+          $response2 = ai_chat($this->model, $messages2, $temperature, 500, FALSE);
+          $explanation = is_string($response2) ? $response2 : (isset($response2->content) ? $response2->content : '');
+        }
+        catch (\Exception $e) {
+          watchdog('ai_content_lifecycle', 'Error fetching explanation after XTRUE verdict: @message', ['@message' => $e->getMessage()], WATCHDOG_WARNING);
+          $explanation = '';
+        }
+        // The verdict was XTRUE — never let a failed explanation call turn a
+        // flagged result back into an empty (pass-like) value.
+        return trim($explanation) !== '' ? $explanation : t('Flagged for review (the model did not return an explanation).');
       }
 
       return NULL;
     }
     catch (\Exception $e) {
       watchdog('ai_content_lifecycle', 'Error analyzing content with AI: @message', ['@message' => $e->getMessage()], WATCHDOG_ERROR);
-      return NULL;
+      return FALSE;
     }
   }
 
@@ -405,7 +417,7 @@ CONTEXT
       $snippet = '';
       $nid = NULL;
 
-      if (is_string($item_id) && preg_match('/node[:\/](\d+]/', $item_id, $matches)) {
+      if (is_string($item_id) && preg_match('/node[:\/](\d+)/', $item_id, $matches)) {
         $nid = intval($matches[1]);
       }
 
@@ -439,7 +451,7 @@ CONTEXT
 
       $line = '- ' . $title;
       if (!empty($url)) {
-        $line .= ' (' . $url . ']';
+        $line .= ' (' . $url . ')';
       }
       if ($score !== NULL) {
         $line .= ' [score ' . round($score, 3) . ']';
@@ -455,7 +467,7 @@ CONTEXT
       return '';
     }
 
-    return t('Similar content candidates (index: @index]:', ['@index' => $index->name]) . "\n" . implode("\n", $lines);
+    return t('Similar content candidates (index: @index):', ['@index' => $index->name]) . "\n" . implode("\n", $lines);
   }
 
   /**
@@ -622,6 +634,16 @@ This is the content you have evaluate:
 
     // Get AI analysis.
     $analysis_result = $this->analyzeContent($entity);
+
+    // Analysis failure (API error / empty response) is not a verdict — do
+    // not record 'ok' or clobber a previous result during an outage.
+    if ($analysis_result === FALSE) {
+      watchdog('ai_content_lifecycle', 'Analysis failed for @type @id; lifecycle status left unchanged.', [
+        '@type' => $entity->entityType(),
+        '@id' => method_exists($entity, 'id') ? $entity->id() : '?',
+      ], WATCHDOG_WARNING);
+      return NULL;
+    }
 
     if ($analysis_result) {
       $lifecycle->ai_results = $analysis_result;
