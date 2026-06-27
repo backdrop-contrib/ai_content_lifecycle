@@ -190,8 +190,14 @@ CONTEXT
           'content' => $subPrompt,
         ];
 
-        $response2 = ai_chat($this->model, $messages2, $temperature, 500, FALSE);
-        $explanation = is_string($response2) ? $response2 : (isset($response2->content) ? $response2->content : '');
+        try {
+          $response2 = ai_chat($this->model, $messages2, $temperature, 500, FALSE);
+          $explanation = is_string($response2) ? $response2 : (isset($response2->content) ? $response2->content : '');
+        }
+        catch (\Exception $e) {
+          watchdog('ai_content_lifecycle', 'Error fetching explanation after XTRUE verdict: @message', ['@message' => $e->getMessage()], WATCHDOG_WARNING);
+          $explanation = '';
+        }
         // The verdict was XTRUE — never let a failed explanation call turn a
         // flagged result back into an empty (pass-like) value.
         return trim($explanation) !== '' ? $explanation : t('Flagged for review (the model did not return an explanation).');

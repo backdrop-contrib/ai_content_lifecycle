@@ -548,10 +548,12 @@ function ai_content_lifecycle_batch_process($nids, &$context) {
       $lifecycle = $analyzer->updateContentLifecycleWithAnalysis($node, NULL);
 
       if ($lifecycle && $lifecycle->review_status === 'analyzed') {
+        $context['results']['processed']++;
         $context['results']['flagged']++;
         $context['message'] = t('Flagged: @title', ['@title' => $node->title]);
       }
       elseif ($lifecycle) {
+        $context['results']['processed']++;
         $context['message'] = t('OK: @title', ['@title' => $node->title]);
       }
       else {
@@ -559,8 +561,6 @@ function ai_content_lifecycle_batch_process($nids, &$context) {
         $context['results']['errors']++;
         $context['message'] = t('Analysis failed: @title', ['@title' => $node->title]);
       }
-
-      $context['results']['processed']++;
     }
     catch (\Exception $e) {
       watchdog('ai_content_lifecycle', 'Error analyzing node @nid: @message', ['@nid' => $nid, '@message' => $e->getMessage()], WATCHDOG_ERROR);
