@@ -140,12 +140,12 @@ class AIContentLifecycleAnalyzer {
       // Call the centralized AI API helper.
       $response = ai_chat($this->model, $messages, $temperature, 500, FALSE);
 
-      if (empty($response)) {
+      $result = is_string($response) ? $response : (isset($response->content) ? $response->content : '');
+
+      if (trim($result) === '') {
         // No verdict — distinct from a clean XFALSE pass.
         return FALSE;
       }
-
-      $result = is_string($response) ? $response : (isset($response->content) ? $response->content : '');
 
       if (stripos($result, 'XTRUE') !== FALSE) {
         // Content needs review, get detailed explanation.
