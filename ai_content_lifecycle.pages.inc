@@ -38,13 +38,15 @@ function ai_content_lifecycle_list_page() {
   $rows = [];
   foreach ($result as $lifecycle) {
     $entity = NULL;
+    $uri = NULL;
     if ($lifecycle->entity_type && $lifecycle->entity_id) {
       $entities = entity_load($lifecycle->entity_type, [$lifecycle->entity_id]);
       $entity = !empty($entities) ? reset($entities) : NULL;
     }
 
-    // Get content link.
-    $content_link = $lifecycle->label;
+    // Get content link. The label is user-authored (node title) — escape the
+    // plain-text fallback; l() escapes the linked variant itself.
+    $content_link = check_plain($lifecycle->label);
     if ($entity) {
       $uri = entity_uri($lifecycle->entity_type, $entity);
       if ($uri) {
@@ -80,7 +82,7 @@ function ai_content_lifecycle_list_page() {
         format_date($lifecycle->created, 'short'),
         l(t('View'), 'admin/content/ai-content-lifecycle/' . $lifecycle->id) .
         ' | ' .
-        ($entity ? l(t('Edit content'), $uri['path'] . '/edit') : ''),
+        (($entity && $uri) ? l(t('Edit content'), $uri['path'] . '/edit') : ''),
       ],
     ];
   }
@@ -271,7 +273,7 @@ function ai_content_lifecycle_view_page($lifecycle_id) {
     $rows[] = [t('Content'), l($lifecycle->label, $uri['path'])];
   }
   else {
-    $rows[] = [t('Content'), check_plain($lifecycle->label) . ' ' . t('(deleted]')];
+    $rows[] = [t('Content'), check_plain($lifecycle->label) . ' ' . t('(deleted)')];
   }
 
   $rows[] = [t('Created'), format_date($lifecycle->created, 'long')];
@@ -315,8 +317,10 @@ function ai_content_lifecycle_view_page($lifecycle_id) {
     '#markup' => implode(' | ', $links),
   ];
 
-  // Status update form.
-  $build['status_form'] = backdrop_get_form('ai_content_lifecycle_status_form', $lifecycle);
+  // Status update form — only for users allowed to edit lifecycle data.
+  if (user_access('edit content lifecycle data') || user_access('administer ai content lifecycle')) {
+    $build['status_form'] = backdrop_get_form('ai_content_lifecycle_status_form', $lifecycle);
+  }
 
   return $build;
 }
@@ -365,6 +369,10 @@ function ai_content_lifecycle_status_form($form, &$form_state, $lifecycle) {
  * Submit handler for status update form.
  */
 function ai_content_lifecycle_status_form_submit($form, &$form_state) {
+  if (!user_access('edit content lifecycle data') && !user_access('administer ai content lifecycle')) {
+    backdrop_set_message(t('You do not have permission to update lifecycle status.'), 'error');
+    return;
+  }
   $lifecycle = $form['#lifecycle'];
   $lifecycle->review_status = $form_state['values']['review_status'];
   $lifecycle->save();

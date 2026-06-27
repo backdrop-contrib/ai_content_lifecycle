@@ -57,7 +57,7 @@ function ai_content_lifecycle_settings_form($form, &$form_state) {
     '#title' => t('Similarity mode'),
     '#options' => [
       'none' => t('None'),
-      'search_api' => t('Search API (fulltext]'),
+      'search_api' => t('Search API (fulltext)'),
       'vector' => t('Vector search'),
     ],
     '#default_value' => $similarity_mode_default,
@@ -137,7 +137,7 @@ function ai_content_lifecycle_settings_form($form, &$form_state) {
   $form['similarity']['vector']['vector_score_threshold'] = [
     '#type' => 'textfield',
     '#title' => t('Similarity score threshold'),
-    '#description' => t('Only include vector matches at or above this score (leave empty for no threshold].'),
+    '#description' => t('Only include vector matches at or above this score (leave empty for no threshold).'),
     '#default_value' => $config->get('vector_score_threshold') !== NULL ? $config->get('vector_score_threshold') : '',
     '#size' => 10,
   ];
@@ -169,7 +169,7 @@ function ai_content_lifecycle_settings_form($form, &$form_state) {
   $form['ai_settings']['temperature'] = [
     '#type' => 'textfield',
     '#title' => t('Temperature'),
-    '#description' => t('Controls randomness in responses. Lower values (0.1-0.5] make output more focused and deterministic. Default is 0.7.'),
+    '#description' => t('Controls randomness in responses. Lower values (0.1-0.5) make output more focused and deterministic. Default is 0.7.'),
     '#default_value' => $config->get('temperature') ?: 0.7,
     '#size' => 10,
     '#element_validate' => ['element_validate_number'],
@@ -178,7 +178,7 @@ function ai_content_lifecycle_settings_form($form, &$form_state) {
   $form['ai_settings']['pre_prompt'] = [
     '#type' => 'textarea',
     '#title' => t('Pre prompt'),
-    '#description' => t('The prompt used for marking content. You can use the following tokens:<br><strong>[conditions]</strong> (the reasons mentioned above why content might be requiring an update]<br><strong>[ai_content_lifecycle:date]</strong> The current date<br><strong>[lang]</strong> The current language of the admin interface'),
+    '#description' => t('The prompt used for marking content. You can use the following tokens:<br><strong>[conditions]</strong> (the reasons mentioned above why content might be requiring an update)<br><strong>[ai_content_lifecycle:date]</strong> The current date<br><strong>[lang]</strong> The current language of the admin interface'),
     '#default_value' => $config->get('pre_prompt') ?: _ai_content_lifecycle_default_system_prompt(),
     '#rows' => 25,
   ];
@@ -551,8 +551,13 @@ function ai_content_lifecycle_batch_process($nids, &$context) {
         $context['results']['flagged']++;
         $context['message'] = t('Flagged: @title', ['@title' => $node->title]);
       }
-      else {
+      elseif ($lifecycle) {
         $context['message'] = t('OK: @title', ['@title' => $node->title]);
+      }
+      else {
+        // Analysis failed (API error) — not a clean pass.
+        $context['results']['errors']++;
+        $context['message'] = t('Analysis failed: @title', ['@title' => $node->title]);
       }
 
       $context['results']['processed']++;

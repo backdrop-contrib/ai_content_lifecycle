@@ -293,20 +293,11 @@ function ai_content_lifecycle_load_by_entity($entity_or_type, $entity_id = NULL)
 }
 
 /**
- * Implements hook_queue_info().
- */
-function ai_content_lifecycle_queue_info() {
-  return [
-    'ai_content_lifecycle_analysis' => [
-      'title' => t('AI Content Lifecycle analysis queue'),
-      'worker callback' => 'ai_content_lifecycle_queue_worker',
-      'cron' => ['time' => 60],
-    ],
-  ];
-}
-
-/**
  * Queue worker: analyze one node.
+ *
+ * Note: the queue is drained by ai_content_lifecycle_cron() below (with the
+ * configurable cron_batch_size). It is deliberately NOT registered via
+ * hook_cron_queue_info() — that would double-drain the same queue.
  */
 function ai_content_lifecycle_queue_worker($data) {
   $nid = isset($data['nid']) ? (int) $data['nid'] : 0;
