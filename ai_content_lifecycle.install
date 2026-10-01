@@ -136,23 +136,15 @@ function ai_content_lifecycle_requirements($phase) {
 }
 
 /**
- * Migrate configuration from openai_content_lifecycle to ai_content_lifecycle.
+ * Copy legacy Content Lifecycle configuration into the AI namespace.
+ *
+ * Non-destructive: legacy config is kept and the legacy module stays enabled
+ * until the operator completes the cutover with AI Upgrade.
  */
 function ai_content_lifecycle_update_1000() {
-  // Migrate config.
-  $old = config('openai_content_lifecycle.settings');
-  $new = config('ai_content_lifecycle.settings');
-  if ($old->get()) {
-    $new->setData($old->get());
-    $new->set('_config_name', 'ai_content_lifecycle.settings');
-    $new->save();
-    $old->delete();
+  if (!module_load_install('ai_upgrade')) {
+    return t('AI Upgrade helpers unavailable; legacy Content Lifecycle configuration not migrated.');
   }
-
-  // Disable legacy module.
-  if (module_exists('openai_content_lifecycle')) {
-    module_disable(['openai_content_lifecycle']);
-  }
-
-  return t('Migrated legacy Content Lifecycle configuration to AI Content Lifecycle.');
+  $result = ai_upgrade_module_install('ai_content_lifecycle');
+  return t('Copied @count legacy Content Lifecycle config object(s).', ['@count' => $result['migrated']]);
 }

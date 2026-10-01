@@ -48,10 +48,16 @@ class AIContentLifecycleAnalyzer {
     // Get configuration.
     $config = config('ai_content_lifecycle.settings');
 
-    // Get model from config.
-    $this->model = $config->get('default_model');
+    // Get model from config or helper.
+    $this->model = function_exists('_ai_content_lifecycle_get_model')
+      ? _ai_content_lifecycle_get_model()
+      : $config->get('default_model');
+
     if (empty($this->model)) {
-      $this->model = config_get('ai.settings', 'default_text_model') ?: 'gpt-4o-mini';
+      $this->model = config_get('ai.settings', 'default_chat_model') ?: config_get('ai.settings', 'default_text_model');
+      if (empty($this->model)) {
+        $this->model = 'openai/gpt-4o-mini';
+      }
     }
 
     // Get API instance for the configured model.
@@ -111,14 +117,6 @@ class AIContentLifecycleAnalyzer {
     // Prepare messages for the provider-neutral AI API.
     $messages = [];
 
-    $site_context = $this->getSiteContextSystemMessage();
-    if ($site_context !== '') {
-      $messages[] = [
-        'role' => 'system',
-        'content' => $site_context,
-      ];
-    }
-
     $messages[] = [
       'role' => 'system',
       'content' => 'You are an agent that responds with only XTRUE or XFALSE. You evaluate CONTEXT based on the INSTRUCTION the user provides. You return (XTRUE) if the INSTRUCTION provided indicate that the content should be updated or (XFALSE) if not.',
@@ -136,9 +134,15 @@ class AIContentLifecycleAnalyzer {
     // Ensure temperature is a float.
     $temperature = floatval($temperature);
 
+    $context = [
+      'operation' => 'content_lifecycle',
+      'entity' => $entity,
+      'entity_type' => method_exists($entity, 'entityType') ? $entity->entityType() : 'node',
+    ];
+
     try {
       // Call the centralized AI API helper.
-      $response = ai_chat($this->model, $messages, $temperature, 500, FALSE);
+      $response = ai_chat($this->model, $messages, $temperature, 500, FALSE, $context);
 
       $result = is_string($response) ? $response : (isset($response->content) ? $response->content : '');
 
@@ -173,13 +177,6 @@ CONTEXT
 
         $messages2 = [];
 
-        if ($site_context !== '') {
-          $messages2[] = [
-            'role' => 'system',
-            'content' => $site_context,
-          ];
-        }
-
         $messages2[] = [
           'role' => 'system',
           'content' => 'You are a content evaluator, helping web editors. You describe why content should be updated.',
@@ -191,7 +188,7 @@ CONTEXT
         ];
 
         try {
-          $response2 = ai_chat($this->model, $messages2, $temperature, 500, FALSE);
+          $response2 = ai_chat($this->model, $messages2, $temperature, 500, FALSE, $context);
           $explanation = is_string($response2) ? $response2 : (isset($response2->content) ? $response2->content : '');
         }
         catch (\Exception $e) {
