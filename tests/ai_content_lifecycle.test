@@ -1,0 +1,53 @@
+<?php
+
+/**
+ * @file
+ * Tests for the AI Content Lifecycle module.
+ */
+
+class AIContentLifecycleTestCase extends BackdropUnitTestCase {
+
+  /**
+   * Set up test environment.
+   */
+  public function setUp() {
+    parent::setUp();
+    require_once dirname(__FILE__) . '/../ai_content_lifecycle.module';
+    require_once dirname(__FILE__) . '/../includes/lifecycle.tools.inc';
+  }
+
+  /**
+   * Test tool definitions.
+   */
+  public function testToolsDefinitions() {
+    $tools = ai_content_lifecycle_tools_definitions();
+
+    $this->assertTrue(isset($tools['get_content_lifecycle_summary']), 'get_content_lifecycle_summary tool is registered.');
+    $this->assertTrue(isset($tools['list_flagged_content']), 'list_flagged_content tool is registered.');
+    $this->assertTrue(isset($tools['analyze_node_lifecycle']), 'analyze_node_lifecycle tool is registered.');
+
+    // Permissions check.
+    $this->assertEqual($tools['get_content_lifecycle_summary']['permission'], 'view content lifecycle data');
+    $this->assertEqual($tools['list_flagged_content']['permission'], 'view content lifecycle data');
+    $this->assertEqual($tools['analyze_node_lifecycle']['permission'], 'edit content lifecycle data');
+
+    // Required arguments check.
+    $this->assertEqual($tools['analyze_node_lifecycle']['definition']['function']['parameters']['required'], ['nid']);
+  }
+
+  /**
+   * Test async callbacks registration.
+   */
+  public function testAsyncCallbackRegistration() {
+    $callbacks = ai_content_lifecycle_ai_async_callbacks();
+    $this->assertTrue(isset($callbacks['ai_content_lifecycle_async_analyze']), 'ai_content_lifecycle_async_analyze callback registered.');
+  }
+
+  /**
+   * Test model resolution helper.
+   */
+  public function testModelResolution() {
+    $model = _ai_content_lifecycle_get_model();
+    $this->assertTrue(!empty($model), 'Model resolution returns a valid model identifier.');
+  }
+}

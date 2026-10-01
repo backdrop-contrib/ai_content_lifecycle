@@ -156,12 +156,23 @@ function ai_content_lifecycle_settings_form($form, &$form_state) {
   // Model selector: use ai module helper for all chat models from all providers.
   $model_options = ai_get_all_chat_models() ?: [];
 
+  $default_model_value = $config->get('default_model');
+  if (function_exists('_ai_content_lifecycle_get_model')) {
+    $resolved_model = _ai_content_lifecycle_get_model();
+    if (!empty($resolved_model)) {
+      $default_model_value = $resolved_model;
+    }
+  }
+  elseif (function_exists('ai_default_model') && !empty($model_options)) {
+    $default_model_value = ai_default_model($model_options, $default_model_value ?: 'gpt-4o-mini');
+  }
+
   $form['ai_settings']['default_model'] = [
     '#type' => 'select',
     '#title' => t('LLM to use for content evaluation'),
     '#description' => t('Select which AI model to use for content analysis.'),
     '#options' => !empty($model_options) ? $model_options : ['' => t('- No chat models available -')],
-    '#default_value' => $config->get('default_model') ?: 'gpt-4o-mini',
+    '#default_value' => $default_model_value,
     '#required' => TRUE,
     '#disabled' => empty($model_options),
   ];

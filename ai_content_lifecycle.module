@@ -322,6 +322,30 @@ function ai_content_lifecycle_queue_worker($data) {
 }
 
 /**
+ * Resolves the configured or default AI model for content lifecycle analysis.
+ *
+ * @return string|false
+ *   The model identifier (e.g. 'openai/gpt-4o-mini'), or FALSE if none available.
+ */
+function _ai_content_lifecycle_get_model() {
+  $config = config('ai_content_lifecycle.settings');
+  $model = $config->get('default_model');
+  if (empty($model)) {
+    $model = config_get('ai.settings', 'default_chat_model') ?: config_get('ai.settings', 'default_text_model');
+  }
+  if (function_exists('ai_default_model') && function_exists('ai_get_all_chat_models')) {
+    $chat_models = ai_get_all_chat_models();
+    if (!empty($chat_models)) {
+      $resolved = ai_default_model($chat_models, $model ?: 'gpt-4o-mini');
+      if (!empty($resolved)) {
+        $model = $resolved;
+      }
+    }
+  }
+  return !empty($model) ? $model : FALSE;
+}
+
+/**
  * Queue a node for background analysis if its type is enabled.
  */
 function _ai_content_lifecycle_maybe_queue($node) {
@@ -336,8 +360,75 @@ function _ai_content_lifecycle_maybe_queue($node) {
   if (empty($enabled_types[$node->type])) {
     return;
   }
+
+  // If ai_async is enabled and available, dispatch immediately for non-blocking background analysis.
+  if (module_exists('ai_async') && function_exists('ai_async_submit')) {
+    ai_async_submit('ai_content_lifecycle_async_analyze', ['nid' => (int) $node->nid]);
+    return;
+  }
+
   $queue = BackdropQueue::get('ai_content_lifecycle_analysis');
   $queue->createItem(['nid' => (int) $node->nid]);
+}
+
+/**
+ * Implements hook_ai_async_callbacks().
+ */
+function ai_content_lifecycle_ai_async_callbacks() {
+  return [
+    'ai_content_lifecycle_async_analyze' => t('AI Content Lifecycle: Analyze a node for content freshness and quality in the background.'),
+  ];
+}
+
+/**
+ * Async worker callback for ai_async.
+ *
+ * @param array $data
+ *   Job data containing 'nid'.
+ *
+ * @return array
+ *   Status result array.
+ */
+function ai_content_lifecycle_async_analyze(array $data) {
+  $nid = isset($data['nid']) ? (int) $data['nid'] : 0;
+  if (!$nid) {
+    return ['status' => FALSE, 'message' => 'Missing or invalid nid.'];
+  }
+  $node = node_load($nid);
+  if (!$node || empty($node->status)) {
+    return ['status' => FALSE, 'message' => "Node $nid could not be loaded or is unpublished."];
+  }
+  try {
+    $analyzer = new AIContentLifecycleAnalyzer();
+    $lifecycle = $analyzer->updateContentLifecycleWithAnalysis($node, NULL);
+    if (!$lifecycle) {
+      return ['status' => FALSE, 'message' => "Analysis failed for node $nid (check watchdog logs)."];
+    }
+    return [
+      'status' => TRUE,
+      'nid' => $nid,
+      'review_status' => $lifecycle->review_status,
+      'ai_results' => $lifecycle->ai_results,
+    ];
+  }
+  catch (\Exception $e) {
+    watchdog('ai_content_lifecycle', 'Async analyze error for nid @nid: @msg', [
+      '@nid' => $nid,
+      '@msg' => $e->getMessage(),
+    ], WATCHDOG_WARNING);
+    return ['status' => FALSE, 'message' => $e->getMessage()];
+  }
+}
+
+/**
+ * Implements hook_ai_tools().
+ */
+function ai_content_lifecycle_ai_tools() {
+  if (!module_exists('ai_tools')) {
+    return [];
+  }
+  module_load_include('inc', 'ai_content_lifecycle', 'includes/lifecycle.tools');
+  return ai_content_lifecycle_tools_definitions();
 }
 
 /**
