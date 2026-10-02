@@ -177,6 +177,30 @@ function ai_content_lifecycle_settings_form($form, &$form_state) {
     '#disabled' => empty($model_options),
   ];
 
+  $decision_options = function_exists('ai_get_all_decision_models') ? (ai_get_all_decision_models() ?: []) : [];
+  $form['ai_settings']['decision_model'] = [
+    '#type' => 'select',
+    '#title' => t('Decision model (optional)'),
+    '#description' => t('A decision model returns a calibrated yes/no verdict instead of parsing XTRUE/XFALSE from chat output. It is asked about the content-type conditions directly; the pre prompt below only applies to the chat model. The chat model above still writes the explanation for flagged content, and is used for the verdict when the decision call fails.'),
+    '#options' => ['' => t('- None (use the chat model) -')] + $decision_options,
+    '#default_value' => (string) $config->get('decision_model'),
+  ];
+
+  $threshold = $config->get('decision_threshold');
+  $form['ai_settings']['decision_threshold'] = [
+    '#type' => 'textfield',
+    '#title' => t('Decision threshold'),
+    '#description' => t('Probability (0-1) at which the decision model flags content. Raise it to flag less. Default is 0.5.'),
+    '#default_value' => is_numeric($threshold) ? $threshold : 0.5,
+    '#size' => 10,
+    '#element_validate' => ['element_validate_number'],
+    '#states' => [
+      'invisible' => [
+        ':input[name="ai_settings[decision_model]"]' => ['value' => ''],
+      ],
+    ],
+  ];
+
   $form['ai_settings']['temperature'] = [
     '#type' => 'textfield',
     '#title' => t('Temperature'),
@@ -365,6 +389,8 @@ function ai_content_lifecycle_settings_form_submit($form, &$form_state) {
 
   // Save AI settings (convert temperature to float).
   $config->set('default_model', $form_state['values']['ai_settings']['default_model']);
+  $config->set('decision_model', (string) $form_state['values']['ai_settings']['decision_model']);
+  $config->set('decision_threshold', max(0.0, min(1.0, floatval($form_state['values']['ai_settings']['decision_threshold']))));
   $config->set('temperature', floatval($form_state['values']['ai_settings']['temperature']));
   $config->set('pre_prompt', $form_state['values']['ai_settings']['pre_prompt']);
   $config->set('cron_batch_size', (int) $form_state['values']['cron_batch_size']);

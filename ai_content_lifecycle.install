@@ -148,3 +148,17 @@ function ai_content_lifecycle_update_1000() {
   $result = ai_upgrade_module_install('ai_content_lifecycle');
   return t('Copied @count legacy Content Lifecycle config object(s).', ['@count' => $result['migrated']]);
 }
+
+/**
+ * Add the optional decision-model settings.
+ */
+function ai_content_lifecycle_update_1001() {
+  $config = config('ai_content_lifecycle.settings');
+  if ($config->get('decision_model') === NULL) {
+    $config->set('decision_model', '');
+  }
+  if ($config->get('decision_threshold') === NULL) {
+    $config->set('decision_threshold', 0.5);
+  }
+  $config->save();
+}

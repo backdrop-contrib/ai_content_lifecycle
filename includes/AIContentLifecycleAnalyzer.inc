@@ -140,18 +140,25 @@ class AIContentLifecycleAnalyzer {
       'entity_type' => method_exists($entity, 'entityType') ? $entity->entityType() : 'node',
     ];
 
+    // Optional decision-model verdict; NULL means unavailable or failed, so
+    // the chat verdict below runs as before.
+    $flagged = $this->decideNeedsUpdate($content, $entity_prompt, $date, $similarity_context, $context);
+
     try {
-      // Call the centralized AI API helper.
-      $response = ai_chat($this->model, $messages, $temperature, 500, FALSE, $context);
+      if ($flagged === NULL) {
+        // Call the centralized AI API helper.
+        $response = ai_chat($this->model, $messages, $temperature, 500, FALSE, $context);
 
-      $result = is_string($response) ? $response : (isset($response->content) ? $response->content : '');
+        $result = is_string($response) ? $response : (isset($response->content) ? $response->content : '');
 
-      if (trim($result) === '') {
-        // No verdict — distinct from a clean XFALSE pass.
-        return FALSE;
+        if (trim($result) === '') {
+          // No verdict — distinct from a clean XFALSE pass.
+          return FALSE;
+        }
+        $flagged = stripos($result, 'XTRUE') !== FALSE;
       }
 
-      if (stripos($result, 'XTRUE') !== FALSE) {
+      if ($flagged) {
         // Content needs review, get detailed explanation.
         $subPrompt = "
 VARIABLES
@@ -205,6 +212,80 @@ CONTEXT
     catch (\Exception $e) {
       watchdog('ai_content_lifecycle', 'Error analyzing content with AI: @message', ['@message' => $e->getMessage()], WATCHDOG_ERROR);
       return FALSE;
+    }
+  }
+
+  /**
+   * Asks the configured decision model whether the content needs updating.
+   *
+   * @param array $content
+   *   Extracted content with 'title' and 'content'.
+   * @param string $conditions
+   *   The bundle conditions that make content need an update.
+   * @param string $date
+   *   Today's date, so "outdated" is judged against the present.
+   * @param string $similarity_context
+   *   Similar-content context, or ''.
+   * @param array $context
+   *   Usage context for the API call.
+   *
+   * @return bool|null
+   *   TRUE when flagged, FALSE when it passed, NULL when no decision model is
+   *   configured or the call failed (the caller then uses the chat verdict).
+   */
+  protected function decideNeedsUpdate(array $content, $conditions, $date, $similarity_context, array $context) {
+    $config = config('ai_content_lifecycle.settings');
+    $decision_model = (string) $config->get('decision_model');
+    if ($decision_model === '') {
+      return NULL;
+    }
+
+    $stripped_model = '';
+    $api = ai_get_api_for_model($decision_model, $stripped_model);
+    if (!$api || !method_exists($api, 'decide')) {
+      watchdog('ai_content_lifecycle', 'Decision model @model is unavailable; using the chat model.', ['@model' => $decision_model], WATCHDOG_WARNING);
+      return NULL;
+    }
+
+    $input = "Today is $date.\n\nTitle: " . $content['title'] . "\n\n" . $content['content'];
+    if ($similarity_context !== '') {
+      $input .= "\n\n" . $similarity_context;
+    }
+    $question = [
+      'id' => 'needs_update',
+      'type' => 'boolean',
+      'prompt' => "Should a web editor review and update this content? It needs an update when it:\n" . $conditions,
+    ];
+
+    try {
+      $decisions = $api->decide($input, [$question], $stripped_model ?: $decision_model, $context);
+      $decision = NULL;
+      foreach ((array) $decisions as $d) {
+        if (is_array($d) && ($d['id'] ?? '') === 'needs_update') {
+          $decision = $d;
+        }
+      }
+      if ($decision === NULL || !isset($decision['answer'])) {
+        throw new \RuntimeException('The decision response has no needs_update answer.');
+      }
+      // Probability that the content needs an update, from the distribution
+      // when present, otherwise from the returned answer's probability.
+      if (isset($decision['probabilities']['true']) && is_numeric($decision['probabilities']['true'])) {
+        $p_true = (float) $decision['probabilities']['true'];
+      }
+      elseif (isset($decision['probability']) && is_numeric($decision['probability'])) {
+        $p_true = $decision['answer'] ? (float) $decision['probability'] : 1.0 - (float) $decision['probability'];
+      }
+      else {
+        $p_true = $decision['answer'] ? 1.0 : 0.0;
+      }
+      $threshold = $config->get('decision_threshold');
+      $threshold = is_numeric($threshold) ? (float) $threshold : 0.5;
+      return $p_true >= $threshold;
+    }
+    catch (\Throwable $e) {
+      watchdog('ai_content_lifecycle', 'Decision model request failed (@message); using the chat model.', ['@message' => $e->getMessage()], WATCHDOG_WARNING);
+      return NULL;
     }
   }
 
