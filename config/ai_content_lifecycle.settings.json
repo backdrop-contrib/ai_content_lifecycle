@@ -2,6 +2,8 @@
     "_config_name": "ai_content_lifecycle.settings",
     "default_model": "gpt-4o-mini",
     "temperature": 0.7,
+    "decision_model": "",
+    "decision_threshold": 0.5,
     "pre_prompt": "Format:\n------\nRespond XTRUE or XFALSE, nothing else, no pleasantries or other things.\n\nVariables:\n---------\nToday is [ai_content_lifecycle:date]\n\nINSTRUCTIONS\n------------\nreturn XTRUE when the content\n[conditions]\n\nOtherwise return XFALSE\n\nThis is the content you have evaluate:\n----------------------------------------\n[context]",
     "default_prompt": "- contains inconsistencies or contradictions\n- appears to be outdated and a human should check it",
     "enabled_types": {},
