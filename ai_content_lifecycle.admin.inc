@@ -181,7 +181,7 @@ function ai_content_lifecycle_settings_form($form, &$form_state) {
   $form['ai_settings']['decision_model'] = [
     '#type' => 'select',
     '#title' => t('Decision model (optional)'),
-    '#description' => t('A decision model returns a calibrated yes/no verdict instead of parsing XTRUE/XFALSE from chat output. The chat model above still writes the explanation for flagged content, and is used for the verdict when the decision call fails.'),
+    '#description' => t('A decision model returns a calibrated yes/no verdict instead of parsing XTRUE/XFALSE from chat output. It is asked about the content-type conditions directly; the pre prompt below only applies to the chat model. The chat model above still writes the explanation for flagged content, and is used for the verdict when the decision call fails.'),
     '#options' => ['' => t('- None (use the chat model) -')] + $decision_options,
     '#default_value' => (string) $config->get('decision_model'),
   ];
