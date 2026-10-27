@@ -4,7 +4,7 @@ This module provides AI-powered content analysis to help content editors identif
 
 ## Features
 
-- **Automated Content Analysis**: Uses AI's GPT models to analyze content based on configurable conditions
+- **Automated Content Analysis**: Uses the AI provider and model you select to analyze content based on configurable conditions
 - **Flexible Configuration**: Set up different analysis criteria for different content types
 - **Batch Processing**: Analyze all existing content at once or process content automatically as it's created
 - **Custom Prompts**: Configure exactly what conditions should trigger a review flag
@@ -12,19 +12,22 @@ This module provides AI-powered content analysis to help content editors identif
 ## Requirements
 
 - Backdrop CMS 1.x
-- AI module (with configured API key)
-- Key module (for secure API key storage)
+- PHP 8.2 or later
+- [AI](https://github.com/backdrop-contrib/ai) module with at least one configured provider
+- [Entity Plus](https://backdropcms.org/project/entity_plus)
+- [Entity UI](https://backdropcms.org/project/entity_ui)
+- Views (core)
 
 ## Installation
 
-1. Install and enable the AI module and configure your API key
+1. Install and enable the AI module and configure a provider
 2. Install and enable this module
-3. Visit Configuration > Content > AI Content Lifecycle to configure
+3. Visit `admin/config/ai/ai-content-lifecycle` to configure
 
 ## Configuration
 
-1. Navigate to **Configuration > Content > AI Content Lifecycle**
-2. Select which AI model to use (GPT-4o Mini is recommended for cost-effectiveness)
+1. Navigate to `admin/config/ai/ai-content-lifecycle`
+2. Select which AI model to use
 3. Define your default analysis conditions (e.g., "mentions outdated information")
 4. Select which content types should be analyzed
 5. Optionally set specific conditions for each content type
@@ -43,9 +46,7 @@ After configuring the module, use the "Analyze Existing Content" button to proce
 
 ### Viewing Results
 
-Analysis results are stored and can be accessed through:
-- State API: `state_get('ai_content_lifecycle_' . $nid)`
-- Integration with Flag module (if enabled) - creates "needs_review" flags
+Analysis results are stored as AI Content Lifecycle entities. Flagged content is listed at `admin/content/ai-content-lifecycle`, where each item links to its full analysis.
 
 ## How It Works
 
@@ -72,13 +73,21 @@ This approach minimizes API costs while providing useful feedback to content edi
 - Modify the extracted content array before analysis
 - Keys: 'title', 'content', 'updated', 'language'
 
+## Issues
+
+Bugs and feature requests should be reported in the [Issue Queue](https://github.com/backdrop-contrib/ai_content_lifecycle/issues).
+
+## Current Maintainer
+
+[Justin Keiser](https://github.com/keiserjb)
+
 ## Credits
 
-This module is a Backdrop CMS port of the Drupal "AI Content Lifecycle" module, adapted to work with the AI module instead of the Drupal AI module.
+This module is a Backdrop CMS port of the Drupal [AI Content Lifecycle](https://www.drupal.org/project/ai_content_lifecycle) module, adapted to work with the AI module instead of the Drupal AI module.
 
 Original Drupal module maintainers:
-- ayalon
-- wouters_f
+- [ayalon](https://www.drupal.org/u/ayalon)
+- [wouters_f](https://www.drupal.org/u/wouters_f)
 
 Backdrop port: Adapted for Backdrop CMS with AI module integration
 
