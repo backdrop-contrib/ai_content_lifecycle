@@ -1,77 +1,17 @@
 # AI Content Lifecycle
 
-This module provides AI-powered content analysis to help content editors identify and review outdated or inaccurate content on their Backdrop CMS site.
-
-## Features
-
-- **Automated Content Analysis**: Uses the AI provider and model you select to analyze content based on configurable conditions
-- **Flexible Configuration**: Set up different analysis criteria for different content types
-- **Batch Processing**: Analyze all existing content at once or process content automatically as it's created
-- **Custom Prompts**: Configure exactly what conditions should trigger a review flag
+Flag published pages that may need updating. Define what editors should review for each content type, then use AI to check pages and explain the flags.
 
 ## Requirements
 
-- Backdrop CMS 1.x
-- PHP 8.2 or later
-- [AI](https://github.com/backdrop-contrib/ai) module with at least one configured provider
-- [Entity Plus](https://backdropcms.org/project/entity_plus)
-- [Entity UI](https://backdropcms.org/project/entity_ui)
-- Views (core)
+Backdrop CMS 1.x, PHP 8.2 or later, and [AI](https://github.com/backdrop-contrib/ai), [Entity Plus](https://backdropcms.org/project/entity_plus), [Entity UI](https://backdropcms.org/project/entity_ui), and Views. Configure a chat model to analyze content.
 
 ## Installation
 
-1. Install and enable the AI module and configure a provider
-2. Install and enable this module
-3. Visit `admin/config/ai/ai-content-lifecycle` to configure
+1. Install and enable the module using the official [Backdrop CMS instructions](https://backdropcms.org/user-guide/modules).
+2. Open **AI Content Lifecycle** at `admin/config/ai/ai-content-lifecycle`, select content types, and define your review conditions.
 
-## Configuration
-
-1. Navigate to `admin/config/ai/ai-content-lifecycle`
-2. Select which AI model to use
-3. Define your default analysis conditions (e.g., "mentions outdated information")
-4. Select which content types should be analyzed
-5. Optionally set specific conditions for each content type
-6. Save configuration
-
-## Usage
-
-### Batch Analysis
-
-After configuring the module, use the "Analyze Existing Content" button to process all published content of the selected types. The module will:
-
-1. Extract text content from each node
-2. Send it to AI with your configured prompts
-3. Flag content that needs review based on the AI's analysis
-4. Store the analysis results for editor review
-
-### Viewing Results
-
-Analysis results are stored as AI Content Lifecycle entities. Flagged content is listed at `admin/content/ai-content-lifecycle`, where each item links to its full analysis.
-
-## How It Works
-
-The module performs a two-step analysis:
-
-1. **Initial Check**: Asks AI if content meets the configured conditions for review (responds with XTRUE/XFALSE)
-2. **Detailed Analysis**: If flagged, requests a detailed explanation of why the content needs review
-
-This approach minimizes API costs while providing useful feedback to content editors.
-
-## Extending
-
-### Hooks
-
-**hook_ai_content_lifecycle_prepare_content($entity)**
-- Prepare custom content extraction for entities
-- Return a string of content to analyze
-
-**hook_ai_content_lifecycle_prompt_alter(&$prompt, $entity)**
-- Modify the prompt before sending to AI
-- Add custom tokens or context
-
-**hook_ai_content_lifecycle_content_alter(&$content, $entity)**
-- Modify the extracted content array before analysis
-- Keys: 'title', 'content', 'updated', 'language'
+See the [module wiki](https://github.com/backdrop-contrib/ai_content_lifecycle/wiki) for setup, use, and troubleshooting.
 
 ## Issues
 
@@ -96,4 +36,3 @@ Backdrop port: Adapted for Backdrop CMS with AI module integration
 ## License
 
 GPL-2.0-or-later
-
